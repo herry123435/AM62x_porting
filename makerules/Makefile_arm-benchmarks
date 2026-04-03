@@ -1,0 +1,24 @@
+# arm-benchmarks build targets
+arm-benchmarks:
+	@echo =============================
+	@echo    Building ARM Benchmarks
+	@echo =============================
+	$(MAKE) -C $(ARM_BENCHMARKS_SRC_DIR) CC="$(CC)"
+
+arm-benchmarks_clean:
+	@echo =============================
+	@echo    Cleaning ARM Benchmarks
+	@echo =============================
+	$(MAKE) -C $(ARM_BENCHMARKS_SRC_DIR) clean
+
+arm-benchmarks_install:
+	@echo ==============================================
+	@echo   Installing ARM Benchmarks - Release version
+	@echo ==============================================
+	$(MAKE) -C $(ARM_BENCHMARKS_SRC_DIR) install
+
+arm-benchmarks_install_debug:
+	@echo ============================================
+	@echo   Installing ARM Benchmarks - Debug Version
+	@echo ============================================
+	$(MAKE) -C $(ARM_BENCHMARKS_SRC_DIR) install_debug

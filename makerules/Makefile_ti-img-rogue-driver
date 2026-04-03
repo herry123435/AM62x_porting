@@ -1,0 +1,20 @@
+
+# ti-img-rogue-driver
+ti-img-rogue-driver: linux
+	@echo =====================================
+	@echo     Building ti-img-rogue-driver
+	@echo =====================================
+	$(MAKE) -C $(IMG_ROGUE_SRC_DIR) ARCH=$(ARCH) KERNELDIR=${LINUXKERNEL_INSTALL_DIR} BUILD=${PVR_BUILD} PVR_BUILD_DIR=${PVR_BUILD_DIR} WINDOW_SYSTEM=${WINDOW_SYSTEM}
+
+ti-img-rogue-driver_clean:
+	@echo ====================================
+	@echo     Cleaning ti-img-rogue-driver
+	@echo ====================================
+	$(MAKE) -C $(IMG_ROGUE_SRC_DIR) ARCH=$(ARCH) KERNELDIR=${LINUXKERNEL_INSTALL_DIR} BUILD=${PVR_BUILD} PVR_BUILD_DIR=${PVR_BUILD_DIR} WINDOW_SYSTEM=${WINDOW_SYSTEM} clean
+
+ti-img-rogue-driver_install:
+	@echo ====================================
+	@echo     Installing ti-img-rogue-driver
+	@echo ====================================
+	cd $(IMG_ROGUE_SRC_DIR)/binary_${PVR_BUILD_DIR}_${WINDOW_SYSTEM}_${PVR_BUILD}/target_aarch64/kbuild; \
+	make -C ${LINUXKERNEL_INSTALL_DIR} ARCH=$(ARCH) INSTALL_MOD_PATH=${DESTDIR} INSTALL_MOD_STRIP=${INSTALL_MOD_STRIP} M=`pwd` modules_install

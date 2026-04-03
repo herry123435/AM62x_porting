@@ -1,0 +1,48 @@
+# Kernel build targets
+linux-extras: linux-extras-dtbs u-boot-extras
+	@echo =================================
+	@echo     Building the Linux Kernel
+	@echo =================================
+	mkdir -p $(TI_SDK_PATH)/board-support/built-images
+	$(MAKE) -C $(LINUXEXTRASKERNEL_INSTALL_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) defconfig ti_arm64_prune.config $(RT_FRAGMENT)
+	$(MAKE) -j $(MAKE_JOBS) -C $(LINUXEXTRASKERNEL_INSTALL_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE)  Image Image.gz
+	$(MAKE) -j $(MAKE_JOBS) -C $(LINUXEXTRASKERNEL_INSTALL_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
+	
+	# Build FitImage
+	cd $(LINUXEXTRASKERNEL_INSTALL_DIR) ; cp arch/arm64/boot/Image.gz ./linux.bin ; cd ..
+	cp $(TI_SDK_PATH)/board-support/prebuilt-images/$(PLATFORM)-jailhouse/fitImage-its-$(PLATFORM) $(LINUXEXTRASKERNEL_INSTALL_DIR)
+	mkimage -r -f $(LINUXEXTRASKERNEL_INSTALL_DIR)/fitImage-its-$(PLATFORM) -k $(UBOOTEXTRAS_SRC_DIR)/arch/arm/mach-k3/keys -K $(TI_SDK_PATH)/board-support/u-boot-extras-build/$(MKIMAGE_DTB_FILE) $(TI_SDK_PATH)/board-support/built-images/fitImage
+	
+	# Rebuild uboot a53 for FitImage
+ifeq ($(SOC), am62l)
+	$(MAKE) -j $(MAKE_JOBS) -C $(UBOOTEXTRAS_SRC_DIR) ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) CC="$(CC)" \
+    BINMAN_INDIRS=$(TI_LINUX_FIRMWARE) BL1=$(UBOOT_AP_TRUSTED_ROM) BL31=$(UBOOT_ATF) TEE=$(UBOOT_TEE) O=$(TI_SDK_PATH)/board-support/u-boot-extras-build/a53
+else
+	$(MAKE) -j $(MAKE_JOBS) -C $(UBOOTEXTRAS_SRC_DIR) ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) CC="$(CC)" \
+    BINMAN_INDIRS=$(TI_LINUX_FIRMWARE) BL31=$(UBOOT_ATF) TEE=$(UBOOT_TEE) TI_DM=$(TI_DM) O=$(TI_SDK_PATH)/board-support/u-boot-extras-build/a53
+endif
+
+linux-extras_stage: linux-extras-dtbs_stage u-boot-extras_stage
+	cp $(LINUXEXTRASKERNEL_INSTALL_DIR)/arch/arm64/boot/Image $(TI_SDK_PATH)/board-support/built-images
+
+linux-extras_install: linux-extras_stage linux-extras-dtbs_install
+	@echo ===================================
+	@echo     Installing the Linux Kernel
+	@echo ===================================
+	@if [ ! -d $(DESTDIR) ] ; then \
+		echo "The extracted target filesystem directory doesn't exist."; \
+		echo "Please run setup.sh in the SDK's root directory and then try again."; \
+		exit 1; \
+	fi
+	install -d $(DESTDIR)/boot
+	install $(TI_SDK_PATH)/board-support/built-images/fitImage $(DESTDIR)/boot
+	install $(TI_SDK_PATH)/board-support/built-images/Image $(DESTDIR)/boot
+	install $(LINUXEXTRASKERNEL_INSTALL_DIR)/vmlinux $(DESTDIR)/boot
+	install $(LINUXEXTRASKERNEL_INSTALL_DIR)/System.map $(DESTDIR)/boot
+	$(MAKE) -C $(LINUXEXTRASKERNEL_INSTALL_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_STRIP=$(INSTALL_MOD_STRIP) modules_install
+
+linux-extras_clean:
+	@echo =================================
+	@echo     Cleaning the Linux Kernel
+	@echo =================================
+	$(MAKE) -C $(LINUXEXTRASKERNEL_INSTALL_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) mrproper
