@@ -14,18 +14,34 @@
 		width-mm = <217>;
 		height-mm = <136>;
 		data-mapping = "vesa-24";
+		backlight = <&lcd_bl>;
+
 		panel-timing {
 			bootph-pre-ram;
-			clock-frequency = <150274>;
+			clock-frequency = <148500>;
 			hactive = <1920>;
-			vactive = <1200>;
-			hback-porch = <32>;
-			hfront-porch = <52>;
-			vback-porch = <24>;
-			vfront-porch = <8>;
-			hsync-len = <24>;
-			vsync-len = <3>;
+			vactive = <1080>;
+			hback-porch = <104>;
+			hfront-porch = <88>;
+			vback-porch = <36>;
+			vfront-porch = <4>;
+			hsync-len = <88>;
+			vsync-len = <5>;
 			de-active = <1>;
+		};
+
+		port@0 {
+			dual-lvds-odd-pixels;
+			lcd_in0: endpoint {
+				remote-endpoint = <&oldi_out0>;
+			};
+		};
+
+		port@1 {
+			dual-lvds-even-pixels;
+			lcd_in1: endpoint {
+				remote-endpoint = <&oldi_out1>;
+			};
 		};
 	};
 };

@@ -172,6 +172,34 @@ static void setup_serial(void)
 	snprintf(serial_string, sizeof(serial_string), "%016lx", board_serial);
 	env_set("serial#", serial_string);
 }
+
+/* ==== [PHASE 1 ADDED] custom boot-mode env setup from DEVSTAT ==== */
+#define BOOT_DEVICE_EMMC	0x09
+#define BOOT_DEVICE_NAND	0x0B
+
+static void setup_custom_boot_env(void)
+{
+	u32 devstat = readl(CTRLMMR_MAIN_DEVSTAT);
+	u32 bootmode = (devstat & MAIN_DEVSTAT_PRIMARY_BOOTMODE_MASK) >>
+		       MAIN_DEVSTAT_PRIMARY_BOOTMODE_SHIFT;
+	char memsize[10];
+
+	switch (bootmode) {
+	case BOOT_DEVICE_EMMC:
+		env_set("mmcdev", "0");
+		env_set("bootpart", "0:1");
+		break;
+	case BOOT_DEVICE_NAND:
+		env_set("boot", "nand");
+		break;
+	default:
+		break;
+	}
+
+	snprintf(memsize, sizeof(memsize), "%lluG",
+		 (unsigned long long)(gd->ram_size / 0x40000000ULL));
+	env_set("memsize", memsize);
+}
 #endif
 #endif
 
@@ -181,6 +209,9 @@ int board_late_init(void)
 	if (IS_ENABLED(CONFIG_TI_I2C_BOARD_DETECT)) {
 		setup_board_eeprom_env();
 		setup_serial();
+		
+		/* ==== [PHASE 1 ADDED] preserve old custom env behavior ==== */
+		setup_custom_boot_env();
 	}
 
 	ti_set_fdt_env(NULL, NULL);
