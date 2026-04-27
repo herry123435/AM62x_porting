@@ -297,6 +297,26 @@ already_set:
 	return 0;
 }
 
+/* ===== CRZ ADDED START: fake AM62x board EEPROM data ===== */
+int CRZ_set_board_header_and_name(void)
+{
+	struct ti_am6_eeprom *ep = TI_AM6_EEPROM_DATA;
+	static bool first_time = true;
+
+	if (!first_time)
+		return 0;
+
+	ep->header = TI_EEPROM_HEADER_MAGIC;
+	strcpy(ep->name, "AM62-SKEVM");
+	strncpy(ep->version, "CRZ", sizeof(ep->version) - 1);
+	strncpy(ep->serial, "0000", sizeof(ep->serial) - 1);
+
+	first_time = false;
+
+	return 0;
+}
+/* ===== CRZ ADDED END ===== */
+
 int __maybe_unused ti_i2c_eeprom_am_get(int bus_addr, int dev_addr)
 {
 	int rc;

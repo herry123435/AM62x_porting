@@ -21,6 +21,7 @@
 #include <asm/arch/hardware.h>
 #include <dm/uclass.h>
 #include <asm/arch/k3-ddr.h>
+#include <stdio.h> /* CRZ ADDED */
 
 #include "../common/board_detect.h"
 #include "../common/fdt_ops.h"
@@ -100,21 +101,32 @@ int board_init(void)
 #if CONFIG_IS_ENABLED(TI_I2C_BOARD_DETECT)
 int do_board_detect(void)
 {
-	int ret;
+	/* CRZ ADDED START: bypass EEPROM and set boot env by boot mode */
+#define BOOT_DEVICE_EMMC        0x09
+#define BOOT_DEVICE_NAND        0x0B
 
-	ret = ti_i2c_eeprom_am6_get_base(CONFIG_EEPROM_BUS_ADDRESS,
-					 CONFIG_EEPROM_CHIP_ADDRESS);
-	if (ret) {
-		printf("EEPROM not available at 0x%02x, trying to read at 0x%02x\n",
-		       CONFIG_EEPROM_CHIP_ADDRESS, CONFIG_EEPROM_CHIP_ADDRESS + 1);
-		ret = ti_i2c_eeprom_am6_get_base(CONFIG_EEPROM_BUS_ADDRESS,
-						 CONFIG_EEPROM_CHIP_ADDRESS + 1);
-		if (ret)
-			pr_err("Reading on-board EEPROM at 0x%02x failed %d\n",
-			       CONFIG_EEPROM_CHIP_ADDRESS + 1, ret);
+	u32 devstat = readl(CTRLMMR_MAIN_DEVSTAT);
+	u32 bootmode = (devstat & MAIN_DEVSTAT_PRIMARY_BOOTMODE_MASK) >>
+			MAIN_DEVSTAT_PRIMARY_BOOTMODE_SHIFT;
+	char memsize[10];
+
+	switch (bootmode) {
+	case BOOT_DEVICE_EMMC:
+		env_set("mmcdev", "0");
+		env_set("bootpart", "0:1");
+		break;
+	case BOOT_DEVICE_NAND:
+		env_set("boot", "nand");
+		break;
+	default:
+		break;
 	}
 
-	return ret;
+	sprintf(memsize, "%dG", (int)(gd->ram_size / 0x40000000));
+	env_set("memsize", memsize);
+
+	return CRZ_set_board_header_and_name();
+	/* CRZ ADDED END */
 }
 
 int checkboard(void)

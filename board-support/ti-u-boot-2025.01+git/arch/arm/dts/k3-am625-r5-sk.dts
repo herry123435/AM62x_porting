@@ -15,3 +15,18 @@
 	ti,sci = <&dm_tifs>;
 	bootph-all;
 };
+
+/* ===== CRZ ADDED START: NAND/GPMC support for R5 SPL ===== */
+#ifdef CONFIG_NAND_OMAP_GPMC
+
+&elm0 {
+	/delete-property/ power-domains;
+};
+
+&gpmc0 {
+	/delete-property/ power-domains;
+	clocks = <&dummy_133mhz_clk>;
+};
+
+#endif
+/* ===== CRZ ADDED END ===== */

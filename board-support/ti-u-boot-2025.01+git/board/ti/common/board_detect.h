@@ -258,6 +258,12 @@ struct ti_am6_eeprom {
 #define TI_AM6_EEPROM_DATA ((struct ti_am6_eeprom *) \
 				TI_SRAM_SCRATCH_BOARD_EEPROM_START)
 
+
+/* ===== CRZ ADDED START: fake board info when EEPROM is unavailable ===== */
+int CRZ_set_board_header_and_name(void);
+/* ===== CRZ ADDED END ===== */
+
+
 /**
  * ti_i2c_eeprom_am_get() - Consolidated eeprom data collection for AM* TI EVMs
  * @bus_addr:	I2C bus address
