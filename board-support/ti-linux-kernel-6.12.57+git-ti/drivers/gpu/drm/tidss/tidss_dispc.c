@@ -19,6 +19,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/sys_soc.h>
+#include <linux/string.h>
 
 #include <drm/drm_blend.h>
 #include <drm/drm_fourcc.h>
@@ -2287,10 +2288,79 @@ static const struct {
 	{ DRM_FORMAT_NV12, 0x3d, },
 };
 
+static u32 dispc_plane_map_pixel_format(struct dispc_device *dispc, u32 fourcc)
+{
+	if (!strcmp(dispc->tidss->pixfmt, "RGB24")) {
+		switch (fourcc) {
+		case DRM_FORMAT_ABGR4444:
+			return DRM_FORMAT_ARGB4444;
+		case DRM_FORMAT_BGR565:
+			return DRM_FORMAT_RGB565;
+		case DRM_FORMAT_ABGR1555:
+			return DRM_FORMAT_ARGB1555;
+		case DRM_FORMAT_ABGR8888:
+			return DRM_FORMAT_ARGB8888;
+		case DRM_FORMAT_BGRA8888:
+			return DRM_FORMAT_RGBA8888;
+		case DRM_FORMAT_BGR888:
+			return DRM_FORMAT_RGB888;
+		case DRM_FORMAT_ABGR2101010:
+			return DRM_FORMAT_ARGB2101010;
+		case DRM_FORMAT_XBGR4444:
+			return DRM_FORMAT_XRGB4444;
+		case DRM_FORMAT_XBGR1555:
+			return DRM_FORMAT_XRGB1555;
+		case DRM_FORMAT_XBGR8888:
+			return DRM_FORMAT_XRGB8888;
+		case DRM_FORMAT_BGRX8888:
+			return DRM_FORMAT_RGBX8888;
+		case DRM_FORMAT_XBGR2101010:
+			return DRM_FORMAT_XRGB2101010;
+		default:
+			return fourcc;
+		}
+	}
+
+	if (!strcmp(dispc->tidss->pixfmt, "BGR24")) {
+		switch (fourcc) {
+		case DRM_FORMAT_ARGB4444:
+			return DRM_FORMAT_ABGR4444;
+		case DRM_FORMAT_RGB565:
+			return DRM_FORMAT_BGR565;
+		case DRM_FORMAT_ARGB1555:
+			return DRM_FORMAT_ABGR1555;
+		case DRM_FORMAT_ARGB8888:
+			return DRM_FORMAT_ABGR8888;
+		case DRM_FORMAT_RGBA8888:
+			return DRM_FORMAT_BGRA8888;
+		case DRM_FORMAT_RGB888:
+			return DRM_FORMAT_BGR888;
+		case DRM_FORMAT_ARGB2101010:
+			return DRM_FORMAT_ABGR2101010;
+		case DRM_FORMAT_XRGB4444:
+			return DRM_FORMAT_XBGR4444;
+		case DRM_FORMAT_XRGB1555:
+			return DRM_FORMAT_XBGR1555;
+		case DRM_FORMAT_XRGB8888:
+			return DRM_FORMAT_XBGR8888;
+		case DRM_FORMAT_RGBX8888:
+			return DRM_FORMAT_BGRX8888;
+		case DRM_FORMAT_XRGB2101010:
+			return DRM_FORMAT_XBGR2101010;
+		default:
+			return fourcc;
+		}
+	}
+
+	return fourcc;
+}
+
 static void dispc_plane_set_pixel_format(struct dispc_device *dispc,
 					 u32 hw_plane, u32 fourcc)
 {
 	unsigned int i;
+
+	fourcc = dispc_plane_map_pixel_format(dispc, fourcc);
 
 	for (i = 0; i < ARRAY_SIZE(dispc_color_formats); ++i) {
 		if (dispc_color_formats[i].fourcc == fourcc) {

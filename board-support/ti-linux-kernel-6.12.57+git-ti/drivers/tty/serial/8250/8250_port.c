@@ -1394,6 +1394,9 @@ void serial8250_em485_stop_tx(struct uart_8250_port *p)
 	else
 		mcr &= ~UART_MCR_RTS;
 	serial8250_out_MCR(p, mcr);
+	if (p->port.rs485_rts_gpio)
+		gpiod_set_value(p->port.rs485_rts_gpio,
+				!!(p->port.rs485.flags & SER_RS485_RTS_AFTER_SEND));
 
 	/*
 	 * Empty the RX FIFO, we are not interested in anything
@@ -1559,6 +1562,9 @@ void serial8250_em485_start_tx(struct uart_8250_port *up)
 	else
 		mcr &= ~UART_MCR_RTS;
 	serial8250_out_MCR(up, mcr);
+	if (up->port.rs485_rts_gpio)
+		gpiod_set_value(up->port.rs485_rts_gpio,
+				!!(up->port.rs485.flags & SER_RS485_RTS_ON_SEND));
 }
 EXPORT_SYMBOL_GPL(serial8250_em485_start_tx);
 

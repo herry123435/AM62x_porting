@@ -9,6 +9,8 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#include <linux/property.h>
+#include <linux/string.h>
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
@@ -233,6 +235,7 @@ static int tidss_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct tidss_device *tidss;
 	struct drm_device *ddev;
+	const char *pixfmt;
 	int ret;
 	int irq;
 
@@ -247,6 +250,8 @@ static int tidss_probe(struct platform_device *pdev)
 
 	tidss->dev = dev;
 	tidss->feat = of_device_get_match_data(dev);
+	if (!device_property_read_string(dev, "pixel-format", &pixfmt))
+		strscpy(tidss->pixfmt, pixfmt, sizeof(tidss->pixfmt));
 
 	platform_set_drvdata(pdev, tidss);
 

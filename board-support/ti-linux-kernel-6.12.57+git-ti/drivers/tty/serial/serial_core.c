@@ -3673,6 +3673,11 @@ int uart_get_rs485_mode(struct uart_port *port)
 	if (port->rs485_term_gpio)
 		port->rs485_supported.flags |= SER_RS485_TERMINATE_BUS;
 
+	desc = devm_gpiod_get_optional(dev, "rs485-rts", GPIOD_OUT_LOW);
+	if (IS_ERR(desc))
+		return dev_err_probe(dev, PTR_ERR(desc), "Cannot get rs485-rts-gpios\n");
+	port->rs485_rts_gpio = desc;
+
 	dflags = (rs485conf->flags & SER_RS485_RX_DURING_TX) ?
 		 GPIOD_OUT_HIGH : GPIOD_OUT_LOW;
 	desc = devm_gpiod_get_optional(dev, "rs485-rx-during-tx", dflags);

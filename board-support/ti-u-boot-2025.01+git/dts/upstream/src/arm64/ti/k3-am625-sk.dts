@@ -59,6 +59,14 @@
 		regulator-always-on;
 		regulator-boot-on;
 	};
+
+	lcd_bl: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&epwm0 0 50000 0>;
+		brightness-levels = <0 32 64 96 128 160 192 224 255>;
+		default-brightness-level = <8>;
+		enable-gpios = <&main_gpio0 36 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &vmain_pd {
@@ -125,6 +133,46 @@
 			AM62X_IOPAD(0x01d4, PIN_INPUT, 7) /* (B15) UART0_RTSn.GPIO1_23 */
 		>;
 	};
+
+	main_epwm0_pins_default: main-epwm0-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x01ac, PIN_OUTPUT, 6) /* (E19) MCASP0_AFSR.EHRPWM0_A */
+		>;
+	};
+};
+
+&main_dss0_pins_default {
+	pinctrl-single,pins = <
+		AM62X_IOPAD(0x100, PIN_OUTPUT, 0) /* (AC25) VOUT0_VSYNC */
+		AM62X_IOPAD(0x0f8, PIN_OUTPUT, 0) /* (AB24) VOUT0_HSYNC */
+		AM62X_IOPAD(0x104, PIN_OUTPUT, 0) /* (AC24) VOUT0_PCLK */
+		AM62X_IOPAD(0x0fc, PIN_OUTPUT, 0) /* (Y20) VOUT0_DE */
+		AM62X_IOPAD(0x0b8, PIN_OUTPUT, 0) /* (U22) VOUT0_DATA0 */
+		AM62X_IOPAD(0x0bc, PIN_OUTPUT, 0) /* (V24) VOUT0_DATA1 */
+		AM62X_IOPAD(0x0c0, PIN_OUTPUT, 0) /* (W25) VOUT0_DATA2 */
+		AM62X_IOPAD(0x0c4, PIN_OUTPUT, 0) /* (W24) VOUT0_DATA3 */
+		AM62X_IOPAD(0x0c8, PIN_OUTPUT, 0) /* (Y25) VOUT0_DATA4 */
+		AM62X_IOPAD(0x0cc, PIN_OUTPUT, 0) /* (Y24) VOUT0_DATA5 */
+		AM62X_IOPAD(0x0d0, PIN_OUTPUT, 0) /* (Y23) VOUT0_DATA6 */
+		AM62X_IOPAD(0x0d4, PIN_OUTPUT, 0) /* (AA25) VOUT0_DATA7 */
+		AM62X_IOPAD(0x0d8, PIN_OUTPUT, 0) /* (V21) VOUT0_DATA8 */
+		AM62X_IOPAD(0x0dc, PIN_OUTPUT, 0) /* (W21) VOUT0_DATA9 */
+		AM62X_IOPAD(0x0e0, PIN_OUTPUT, 0) /* (V20) VOUT0_DATA10 */
+		AM62X_IOPAD(0x0e4, PIN_OUTPUT, 0) /* (AA23) VOUT0_DATA11 */
+		AM62X_IOPAD(0x0e8, PIN_OUTPUT, 0) /* (AB25) VOUT0_DATA12 */
+		AM62X_IOPAD(0x0ec, PIN_OUTPUT, 0) /* (AA24) VOUT0_DATA13 */
+		AM62X_IOPAD(0x0f0, PIN_OUTPUT, 0) /* (Y22) VOUT0_DATA14 */
+		AM62X_IOPAD(0x0f4, PIN_OUTPUT, 0) /* (AA21) VOUT0_DATA15 */
+		AM62X_IOPAD(0x05c, PIN_OUTPUT, 1) /* (R24) GPMC0_AD8.VOUT0_DATA16 */
+		AM62X_IOPAD(0x060, PIN_OUTPUT, 1) /* (R25) GPMC0_AD9.VOUT0_DATA17 */
+		AM62X_IOPAD(0x064, PIN_OUTPUT, 1) /* (T25) GPMC0_AD10.VOUT0_DATA18 */
+		AM62X_IOPAD(0x068, PIN_OUTPUT, 1) /* (R21) GPMC0_AD11.VOUT0_DATA19 */
+		AM62X_IOPAD(0x06c, PIN_OUTPUT, 1) /* (T22) GPMC0_AD12.VOUT0_DATA20 */
+		AM62X_IOPAD(0x070, PIN_OUTPUT, 1) /* (T24) GPMC0_AD13.VOUT0_DATA21 */
+		AM62X_IOPAD(0x074, PIN_OUTPUT, 1) /* (U25) GPMC0_AD14.VOUT0_DATA22 */
+		AM62X_IOPAD(0x078, PIN_OUTPUT, 1) /* (U24) GPMC0_AD15.VOUT0_DATA23 */
+		AM62X_IOPAD(0x094, PIN_OUTPUT, 7) /* (N20) GPMC0_BE1n.GPIO0_36 */
+	>;
 };
 
 &main_gpio0 {
@@ -137,32 +185,16 @@
 
 &main_i2c1 {
 	bootph-all;
+	clock-frequency = <400000>;
+	/delete-node/ gpio@22;
+
 	exp1: gpio@22 {
-		bootph-all;
-		compatible = "ti,tca6424";
 		reg = <0x22>;
 		gpio-controller;
 		#gpio-cells = <2>;
-		gpio-line-names = "GPIO_CPSW2_RST", "GPIO_CPSW1_RST",
-				   "PRU_DETECT", "MMC1_SD_EN",
-				   "VPP_LDO_EN", "EXP_PS_3V3_En",
-				   "EXP_PS_5V0_En", "EXP_HAT_DETECT",
-				   "GPIO_AUD_RSTn", "GPIO_eMMC_RSTn",
-				   "UART1_FET_BUF_EN", "WL_LT_EN",
-				   "GPIO_HDMI_RSTn", "CSI_GPIO1",
-				   "CSI_GPIO2", "PRU_3V3_EN",
-				   "HDMI_INTn", "PD_I2C_IRQ",
-				   "MCASP1_FET_EN", "MCASP1_BUF_BT_EN",
-				   "MCASP1_FET_SEL", "UART1_FET_SEL",
-				   "TSINT#", "IO_EXP_TEST_LED";
-
-		interrupt-parent = <&main_gpio1>;
-		interrupts = <23 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&main_gpio1_ioexp_intr_pins_default>;
+		#address-cells = <0>;
 	};
 };
 
@@ -270,6 +302,139 @@
 &tlv320aic3106 {
 	DVDD-supply = <&vcc_1v8>;
 };
+
+&usb0 {
+	snps,dis_u2_susphy_quirk;
+};
+
+&usb1 {
+	snps,dis_u2_susphy_quirk;
+};
+
+&epwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_epwm0_pins_default>;
+	status = "okay";
+};
+
+&dss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_dss0_pins_default>;
+};
+
+#ifdef CONFIG_NAND_OMAP_GPMC
+&elm0 {
+	bootph-pre-ram;
+	status = "okay";
+};
+
+&main_pmx0 {
+	gpmc0_pins_default: gpmc0-default-pins {
+		bootph-pre-ram;
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x003c, PIN_INPUT, 0) /* (M25) GPMC0_AD0 */
+			AM62X_IOPAD(0x0040, PIN_INPUT, 0) /* (N23) GPMC0_AD1 */
+			AM62X_IOPAD(0x0044, PIN_INPUT, 0) /* (N24) GPMC0_AD2 */
+			AM62X_IOPAD(0x0048, PIN_INPUT, 0) /* (N25) GPMC0_AD3 */
+			AM62X_IOPAD(0x004c, PIN_INPUT, 0) /* (P24) GPMC0_AD4 */
+			AM62X_IOPAD(0x0050, PIN_INPUT, 0) /* (P22) GPMC0_AD5 */
+			AM62X_IOPAD(0x0054, PIN_INPUT, 0) /* (P21) GPMC0_AD6 */
+			AM62X_IOPAD(0x0058, PIN_INPUT, 0) /* (R23) GPMC0_AD7 */
+			AM62X_IOPAD(0x0084, PIN_OUTPUT, 0) /* (L23) GPMC0_ADVn_ALE */
+			AM62X_IOPAD(0x0088, PIN_OUTPUT, 0) /* (L24) GPMC0_OEn_REn */
+			AM62X_IOPAD(0x008c, PIN_OUTPUT, 0) /* (L25) GPMC0_WEn */
+			AM62X_IOPAD(0x0090, PIN_OUTPUT, 0) /* (M24) GPMC0_BE0n_CLE */
+			AM62X_IOPAD(0x00a8, PIN_OUTPUT, 0) /* (M21) GPMC0_CSn0 */
+			AM62X_IOPAD(0x0098, PIN_INPUT, 0) /* (U23) GPMC0_WAIT0 */
+		>;
+	};
+};
+
+&gpmc0 {
+	bootph-pre-ram;
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpmc0_pins_default>;
+	status = "okay";
+	ranges = <0 0 0x00 0x51000000 0x01000000>;
+	#address-cells = <2>;
+	#size-cells = <1>;
+
+	nand0_0: nand@0,0 {
+		compatible = "ti,am64-nand";
+		reg = <0 0 64>;
+		interrupt-parent = <&gpmc0>;
+		interrupts = <0 IRQ_TYPE_NONE>,
+			     <1 IRQ_TYPE_NONE>;
+		rb-gpios = <&gpmc0 0 GPIO_ACTIVE_HIGH>;
+		ti,nand-xfer-type = "prefetch-polled";
+		ti,nand-ecc-opt = "bch8";
+		ti,elm-id = <&elm0>;
+		nand-bus-width = <8>;
+		gpmc,device-width = <1>;
+		gpmc,sync-clk-ps = <0>;
+		gpmc,cs-on-ns = <0>;
+		gpmc,cs-rd-off-ns = <40>;
+		gpmc,cs-wr-off-ns = <40>;
+		gpmc,adv-on-ns = <0>;
+		gpmc,adv-rd-off-ns = <25>;
+		gpmc,adv-wr-off-ns = <25>;
+		gpmc,we-on-ns = <0>;
+		gpmc,we-off-ns = <20>;
+		gpmc,oe-on-ns = <3>;
+		gpmc,oe-off-ns = <30>;
+		gpmc,access-ns = <30>;
+		gpmc,rd-cycle-ns = <40>;
+		gpmc,wr-cycle-ns = <40>;
+		gpmc,bus-turnaround-ns = <0>;
+		gpmc,cycle2cycle-delay-ns = <0>;
+		gpmc,clk-activation-ns = <0>;
+		gpmc,wr-access-ns = <40>;
+		gpmc,wr-data-mux-bus-ns = <0>;
+		bootph-pre-ram;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "NAND.tiboot3";
+				reg = <0x00000000 0x00200000>;
+			};
+
+			partition@200000 {
+				label = "NAND.tispl";
+				reg = <0x00200000 0x00200000>;
+			};
+
+			partition@400000 {
+				label = "NAND.tiboot3.backup";
+				reg = <0x00400000 0x00200000>;
+			};
+
+			partition@600000 {
+				label = "NAND.u-boot";
+				reg = <0x00600000 0x00400000>;
+			};
+
+			partition@a00000 {
+				label = "NAND.u-boot-env";
+				reg = <0x00a00000 0x00040000>;
+			};
+
+			partition@a40000 {
+				label = "NAND.u-boot-env.backup";
+				reg = <0x00a40000 0x00040000>;
+			};
+
+			partition@a80000 {
+				label = "NAND.file-system";
+				reg = <0x00a80000 0x0f580000>;
+			};
+		};
+	};
+};
+#endif
 
 &timesync_router {
 	mux-reg-masks-state = <

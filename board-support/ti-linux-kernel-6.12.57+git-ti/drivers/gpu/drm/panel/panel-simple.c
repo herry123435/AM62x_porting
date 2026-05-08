@@ -1477,6 +1477,31 @@ static const struct panel_desc boe_hv070wsa = {
 	.connector_type = DRM_MODE_CONNECTOR_LVDS,
 };
 
+static const struct drm_display_mode boe_nv133fhm_n52_mode = {
+	.clock = 148500,
+	.hdisplay = 1920,
+	.hsync_start = 1920 + 88,
+	.hsync_end = 1920 + 88 + 104,
+	.htotal = 1920 + 88 + 104 + 88,
+	.vdisplay = 1080,
+	.vsync_start = 1080 + 4,
+	.vsync_end = 1080 + 4 + 36,
+	.vtotal = 1080 + 4 + 36 + 5,
+};
+
+static const struct panel_desc boe_nv133fhm_n52 = {
+	.modes = &boe_nv133fhm_n52_mode,
+	.num_modes = 1,
+	.bpc = 8,
+	.size = {
+		.width = 294,
+		.height = 165,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH,
+	.connector_type = DRM_MODE_CONNECTOR_LVDS,
+};
+
 static const struct display_timing cct_cmt430b19n00_timing = {
 	.pixelclock = { 8000000, 9000000, 12000000 },
 	.hactive = { 480, 480, 480 },
@@ -2463,6 +2488,55 @@ static const struct panel_desc innolux_at070tn92 = {
 		.height = 86,
 	},
 	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_DRIVE_POSEDGE |
+		     DRM_BUS_FLAG_SYNC_DRIVE_POSEDGE,
+};
+
+static const struct drm_display_mode bestar_bsd101wx1_300_mode = {
+	.clock = 72400,
+	.hdisplay = 1280,
+	.hsync_start = 1280 + 68,
+	.hsync_end = 1280 + 68 + 60,
+	.htotal = 1280 + 68 + 60 + 2,
+	.vdisplay = 800,
+	.vsync_start = 800 + 8,
+	.vsync_end = 800 + 8 + 8,
+	.vtotal = 800 + 8 + 8 + 2,
+};
+
+static const struct panel_desc bestar_bsd101wx1_300 = {
+	.modes = &bestar_bsd101wx1_300_mode,
+	.num_modes = 1,
+	.size = {
+		.width = 154,
+		.height = 86,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+};
+
+static const struct drm_display_mode innolux_m236hjj_l31_mode = {
+	.clock = 148500,
+	.hdisplay = 1920,
+	.hsync_start = 1920 + 104,
+	.hsync_end = 1920 + 104 + 88,
+	.htotal = 1920 + 104 + 88 + 88,
+	.vdisplay = 1080,
+	.vsync_start = 1080 + 36,
+	.vsync_end = 1080 + 36 + 4,
+	.vtotal = 1080 + 36 + 4 + 5,
+};
+
+static const struct panel_desc innolux_m236hjj_l31 = {
+	.modes = &innolux_m236hjj_l31_mode,
+	.num_modes = 1,
+	.bpc = 8,
+	.size = {
+		.width = 154,
+		.height = 90,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH,
+	.connector_type = DRM_MODE_CONNECTOR_LVDS,
 };
 
 static const struct display_timing innolux_g070ace_l01_timing = {
@@ -4728,7 +4802,13 @@ static const struct of_device_id platform_of_match[] = {
 		.data = &boe_ev121wxm_n10_1850,
 	}, {
 		.compatible = "boe,hv070wsa-100",
-		.data = &boe_hv070wsa
+		.data = &boe_hv070wsa,
+	}, {
+		.compatible = "boe,nv133fhm-n52",
+		.data = &boe_nv133fhm_n52,
+	}, {
+		.compatible = "bestar,bsd101wx1-300",
+		.data = &bestar_bsd101wx1_300,
 	}, {
 		.compatible = "cct,cmt430b19n00",
 		.data = &cct_cmt430b19n00,
@@ -4876,6 +4956,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "innolux,g156hce-l01",
 		.data = &innolux_g156hce_l01,
+	}, {
+		.compatible = "innolux,m236hjj-l31",
+		.data = &innolux_m236hjj_l31,
 	}, {
 		.compatible = "innolux,n156bge-l21",
 		.data = &innolux_n156bge_l21,
