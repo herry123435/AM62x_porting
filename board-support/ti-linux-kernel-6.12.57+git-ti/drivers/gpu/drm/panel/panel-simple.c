@@ -2507,11 +2507,19 @@ static const struct drm_display_mode bestar_bsd101wx1_300_mode = {
 static const struct panel_desc bestar_bsd101wx1_300 = {
 	.modes = &bestar_bsd101wx1_300_mode,
 	.num_modes = 1,
+	/* ===== CRZ CHANGED: the 6.1 values (RGB888_1X24, no connector_type)
+	 * fail the 6.12 tidss OLDI bridge bus-format negotiation (only LVDS
+	 * 1X7X3/1X7X4 formats are accepted, see tidss_oldi.c), leaving the
+	 * pipe - and the backlight - permanently off. Modeled on the in-tree
+	 * 10.1" 1280x800 LVDS panel rocktech_rk101ii01d_ct. ===== */
+	.bpc = 8,
 	.size = {
-		.width = 154,
-		.height = 86,
+		.width = 217,
+		.height = 136,
 	},
-	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH,
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,
+	.connector_type = DRM_MODE_CONNECTOR_LVDS,
 };
 
 static const struct drm_display_mode innolux_m236hjj_l31_mode = {

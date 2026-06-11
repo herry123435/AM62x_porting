@@ -114,7 +114,9 @@ config PWM_SUNXI
 
 config PWM_TI_EHRPWM
 	bool "Enable support for EHRPWM PWM"
-	depends on DM_PWM && ARCH_OMAP2PLUS
+# ===== CRZ CHANGED: also allow on ARCH_K3 (AM62x EHRPWM drives LCD backlight) =====
+#	depends on DM_PWM && ARCH_OMAP2PLUS
+	depends on DM_PWM && (ARCH_OMAP2PLUS || ARCH_K3)
 	default y
 	help
 	  PWM driver support for the EHRPWM controller found on TI SOCs.

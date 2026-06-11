@@ -93,6 +93,10 @@
 		pwms = <&epwm0 0 50000 0>;
 		brightness-levels = <0 32 64 96 128 160 192 224 255>;
 		default-brightness-level = <8>;
+		/* ===== CRZ ADDED: backlight enable (GPMC0_BE1n.GPIO0_36, muxed in
+		 * usr_led_pins_default); the old port relied on U-Boot splash leaving
+		 * this pin high - Linux must own it now ===== */
+		enable-gpios = <&main_gpio0 36 GPIO_ACTIVE_HIGH>;
 	};
 };
 

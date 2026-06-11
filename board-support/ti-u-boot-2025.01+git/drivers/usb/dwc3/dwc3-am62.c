@@ -13,6 +13,7 @@
 
 #define USBSS_MODE_CONTROL		0x1c
 #define USBSS_PHY_CONFIG		0x8
+#define PHY_PLL_REG12			0x130 /* ===== CRZ ADDED: USB2 PHY PLL lockup workaround ===== */
 #define USBSS_PHY_VBUS_SEL_MASK		GENMASK(2, 1)
 #define USBSS_PHY_VBUS_SEL_SHIFT	1
 #define USBSS_MODE_VALID	BIT(0)
@@ -41,6 +42,7 @@ static void dwc3_ti_am62_glue_configure(struct udevice *dev, int index,
 	unsigned long rate;
 	u32 reg;
 	void *usbss;
+	void *usbphy; /* ===== CRZ ADDED ===== */
 	bool vbus_divider;
 	struct regmap *syscon;
 	struct ofnode_phandle_args args;
@@ -50,6 +52,14 @@ static void dwc3_ti_am62_glue_configure(struct udevice *dev, int index,
 		dev_err(dev, "can't map IOMEM resource\n");
 		return;
 	}
+
+	/* ===== CRZ ADDED START: map USB2 PHY register region (reg index 1) ===== */
+	usbphy = dev_remap_addr_index(dev, 1);
+	if (IS_ERR(usbphy)) {
+		dev_err(dev, "can't map IOMEM resource 1\n");
+		return;
+	}
+	/* ===== CRZ ADDED END ===== */
 
 	ret = clk_get_by_name(dev, "ref", &usb2_refclk);
 	if (ret) {
@@ -98,6 +108,11 @@ static void dwc3_ti_am62_glue_configure(struct udevice *dev, int index,
 		reg |= 1 << USBSS_PHY_VBUS_SEL_SHIFT;
 
 	writel(reg, usbss + USBSS_PHY_CONFIG);
+
+	/* ===== CRZ ADDED START: USB2 PHY PLL lockup workaround (ldo_en) ===== */
+	dev_info(dev, "lockup ldo_en wa\n");
+	writel(0x30, usbphy + PHY_PLL_REG12);
+	/* ===== CRZ ADDED END ===== */
 
 	/* Set mode valid */
 	reg = readl(usbss + USBSS_MODE_CONTROL);

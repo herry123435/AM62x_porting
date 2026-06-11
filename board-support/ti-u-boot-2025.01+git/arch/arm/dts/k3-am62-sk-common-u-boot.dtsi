@@ -7,51 +7,41 @@
 #include "k3-am625-sk-binman.dtsi"
 
 / {
+	/* ===== CRZ CHANGED START: U-Boot splash panel = Bestar BSD101WX1-300
+	 * (10.1" 1280x800 LVDS on OLDI, single link - see tidss_drv.c).
+	 * Notes:
+	 *  - U-Boot's tidss only reads compatible/panel-timing/data-mapping
+	 *    from this node; OLDI ports/companion properties are kernel
+	 *    binding material and are intentionally NOT present here.
+	 *  - NO backlight phandle: simple-panel probe fails if the phandle
+	 *    cannot bind a backlight driver, killing video entirely. The
+	 *    backlight enable line is driven by the gpio hog below instead.
+	 *  - vanilla TI timings were 1920x1200 (SK LCD1 kit panel). ===== */
 	panel_lvds: panel-lvds {
 		bootph-pre-ram;
 		compatible = "simple-panel";
-		status= "okay";
+		status = "okay";
 		width-mm = <217>;
 		height-mm = <136>;
 		data-mapping = "vesa-24";
-		backlight = <&lcd_bl>;
 		panel-timing {
 			bootph-pre-ram;
-			clock-frequency = <148500>;
-			hactive = <1920>;
-			vactive = <1080>;
-			hback-porch = <104>;
-			hfront-porch = <88>;
-			vback-porch = <36>;
-			vfront-porch = <4>;
-			hsync-len = <88>;
-			vsync-len = <5>;
+			clock-frequency = <72400>;
+			hactive = <1280>;
+			vactive = <800>;
+			hfront-porch = <68>;
+			hsync-len = <60>;
+			hback-porch = <2>;
+			vfront-porch = <8>;
+			vsync-len = <8>;
+			vback-porch = <2>;
 			de-active = <1>;
 		};
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				dual-lvds-odd-pixels;
-				lcd_in0: endpoint {
-					remote-endpoint = <&oldi_0_out>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-				dual-lvds-even-pixels;
-				lcd_in1: endpoint {
-					remote-endpoint = <&oldi_1_out>;
-				};
-			};
-		};
 	};
+	/* ===== CRZ CHANGED END ===== */
 };
 
+/* vanilla TI override: U-Boot-resolvable DSS clocks + OLDI io-ctrl syscon */
 &dss {
 	clocks = <&k3_clks 186 6>,
 		<&k3_clks 186 0>,
@@ -59,72 +49,27 @@
 	ti,am65x-oldi-io-ctrl = <&dss_oldi_io_ctrl>;
 };
 
-&oldi0 {
-	status = "okay";
-	ti,companion-oldi = <&oldi1>;
-};
-
-&oldi1 {
-	status = "okay";
-	ti,secondary-oldi;
-	ti,companion-oldi = <&oldi0>;
-};
-
-&oldi0_ports {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	port@0 {
-		reg = <0>;
-		oldi_0_in: endpoint {
-			remote-endpoint = <&dpi0_out0>;
-		};
-	};
-
-	port@1 {
-		reg = <1>;
-		oldi_0_out: endpoint {
-			remote-endpoint = <&lcd_in0>;
-		};
+/* ===== CRZ ADDED START: LCD backlight enable for U-Boot splash =====
+ * GPMC0_BE1n.GPIO0_36 gates the backlight supply; drive it high as soon
+ * as main_gpio0 probes so the splash is visible (U-Boot's tidss never
+ * calls panel_enable_backlight()). Requires CONFIG_GPIO_HOG=y. */
+&main_pmx0 {
+	lcd_bl_en_pins_default: lcd-bl-en-default-pins {
+		pinctrl-single,pins = <
+			AM62X_IOPAD(0x094, PIN_OUTPUT, 7) /* (N20) GPMC0_BE1n.GPIO0_36 */
+		>;
 	};
 };
 
-&oldi1_ports {
-	#address-cells = <1>;
-	#size-cells = <0>;
+&main_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&lcd_bl_en_pins_default>;
 
-	port@0 {
-		reg = <0>;
-		oldi_1_in: endpoint {
-			remote-endpoint = <&dpi0_out1>;
-		};
-	};
-
-	port@1 {
-		reg = <1>;
-		oldi_1_out: endpoint {
-			remote-endpoint = <&lcd_in1>;
-		};
+	lcd-bl-en-hog {
+		gpio-hog;
+		gpios = <36 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "lcd-backlight-enable";
 	};
 };
-
-&dss_ports {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	port@0 {
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		dpi0_out0: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&oldi_0_in>;
-		};
-
-		dpi0_out1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&oldi_1_in>;
-		};
-	};
-};
+/* ===== CRZ ADDED END ===== */

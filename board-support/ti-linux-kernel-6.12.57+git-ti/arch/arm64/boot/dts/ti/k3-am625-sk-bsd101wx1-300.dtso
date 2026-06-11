@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Bestar BSD101WX1-300 panel overlay for AM625 SK.
+ * Bestar BSD101WX1-300 panel overlay for AM625 SK / CX-AM62x.
+ *
+ * ===== CRZ CHANGED: rewritten as SINGLE-link OLDI =====
+ * A 10.1" 1280x800 @ 72.4 MHz LVDS panel is a single-channel panel (cf. the
+ * in-tree rocktech,rk101ii01d-ct of the same class); the previous dual-link
+ * (odd/even pixels on OLDI0+OLDI1) routing cannot light it up. Single link
+ * is selected in tidss_oldi.c simply by NOT having ti,companion-oldi.
+ * Timings, size and bus format come from the panel-simple descriptor
+ * ("bestar,bsd101wx1-300"); a panel-timing node here would only trigger
+ * "Reject override mode" warnings, so it is intentionally absent.
+ * The panel must be wired to OLDI0_A0..A3 + OLDI0_CLK0 (odd channel of J6).
  */
 
 /dts-v1/;
@@ -10,41 +20,10 @@
 	display {
 		compatible = "bestar,bsd101wx1-300", "panel-simple";
 		backlight = <&lcd_bl>;
-		width-mm = <154>;
-		height-mm = <86>;
-		data-mapping = "vesa-24";
 
-		panel-timing {
-			clock-frequency = <72400>;
-			hactive = <1280>;
-			vactive = <800>;
-			hfront-porch = <68>;
-			hback-porch = <2>;
-			hsync-len = <60>;
-			vfront-porch = <8>;
-			vback-porch = <2>;
-			vsync-len = <8>;
-			de-active = <1>;
-		};
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				dual-lvds-odd-pixels;
-				lcd_in0: endpoint {
-					remote-endpoint = <&oldi_0_out>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-				dual-lvds-even-pixels;
-				lcd_in1: endpoint {
-					remote-endpoint = <&oldi_1_out>;
-				};
+		port {
+			lcd_in0: endpoint {
+				remote-endpoint = <&oldi_0_out>;
 			};
 		};
 	};
@@ -56,13 +35,7 @@
 
 &oldi0 {
 	status = "okay";
-	ti,companion-oldi = <&oldi1>;
-};
-
-&oldi1 {
-	status = "okay";
-	ti,secondary-oldi;
-	ti,companion-oldi = <&oldi0>;
+	/* no ti,companion-oldi => single-link OLDI */
 };
 
 &oldi0_ports {
@@ -84,42 +57,14 @@
 	};
 };
 
-&oldi1_ports {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	port@0 {
-		reg = <0>;
-		oldi_1_in: endpoint {
-			remote-endpoint = <&dpi0_out1>;
-		};
-	};
-
-	port@1 {
-		reg = <1>;
-		oldi_1_out: endpoint {
-			remote-endpoint = <&lcd_in1>;
-		};
-	};
-};
-
 &dss_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
 	port@0 {
 		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		dpi0_out0: endpoint@0 {
-			reg = <0>;
+		dpi0_out0: endpoint {
 			remote-endpoint = <&oldi_0_in>;
-		};
-
-		dpi0_out1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&oldi_1_in>;
 		};
 	};
 };
