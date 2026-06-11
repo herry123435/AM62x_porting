@@ -101,10 +101,9 @@ int board_init(void)
 #if CONFIG_IS_ENABLED(TI_I2C_BOARD_DETECT)
 int do_board_detect(void)
 {
-	/* CRZ ADDED START: bypass EEPROM and set boot env by boot mode */
-#define BOOT_DEVICE_EMMC        0x09
-#define BOOT_DEVICE_NAND        0x0B
-
+	/* CRZ ADDED START: bypass EEPROM and set boot env by boot mode.
+	 * BOOT_DEVICE_EMMC (0x09) and BOOT_DEVICE_NAND (0x0B) come from
+	 * <asm/arch/spl.h> (am62_spl.h, included via <spl.h>). */
 	u32 devstat = readl(CTRLMMR_MAIN_DEVSTAT);
 	u32 bootmode = (devstat & MAIN_DEVSTAT_PRIMARY_BOOTMODE_MASK) >>
 			MAIN_DEVSTAT_PRIMARY_BOOTMODE_SHIFT;
