@@ -760,6 +760,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		hang();
 	}
 
+	puts("CRZ: image loaded OK\n"); /* ===== CRZ TEMP BREADCRUMB ===== */
 	spl_perform_fixups(&spl_image);
 
 	os = spl_image.os;
@@ -828,6 +829,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 			       ret);
 	}
 
+	puts("CRZ: jumping now\n"); /* ===== CRZ TEMP BREADCRUMB ===== */
 	spl_board_prepare_for_boot();
 	jump_to_image(&spl_image);
 }
