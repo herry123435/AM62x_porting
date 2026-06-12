@@ -163,8 +163,14 @@ CONFIG_EFI_SET_TIME=y
 CONFIG_SPL_GZIP=y
 
 # ==== Phase 1: old custom items re-added for first bring-up ====
-CONFIG_SYS_K3_SPL_ATF=y
-CONFIG_K3_ATF_LOAD_ADDR=0x9e780000
+# ==== CRZ CHANGED: SYS_K3_SPL_ATF / K3_ATF_LOAD_ADDR REMOVED from the A53
+# config (they are R5-SPL concepts; R5 defaults them correctly). On 2025.01,
+# setting SYS_K3_SPL_ATF on A53 compiles OUT board_fit_image_post_process()
+# (see arch/arm/mach-k3/common.c '&& !IS_ENABLED(CONFIG_SYS_K3_SPL_ATF)'),
+# so the A53 SPL never strips the X.509 signing certificate from the loaded
+# u-boot.img and jumps into certificate bytes -> silent hang after
+# "mmc_load_image_raw_sector". The 2023.04 baseline had no such guard, which
+# is why the old port got away with it. ====
 CONFIG_TI_I2C_BOARD_DETECT=y
 CONFIG_ENV_IS_IN_MMC=y
 CONFIG_ENV_OFFSET=0x680000
