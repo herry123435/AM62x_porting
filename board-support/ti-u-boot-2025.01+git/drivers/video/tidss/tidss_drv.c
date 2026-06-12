@@ -875,12 +875,13 @@ static int tidss_drv_probe(struct udevice *dev)
 	uc_priv->xsize = timings.hactive.typ;
 	uc_priv->ysize = timings.vactive.typ;
 	if (priv->feat->subrev == DSS_AM65X || priv->feat->subrev == DSS_AM625) {
-		/* ===== CRZ CHANGED: bsd101wx1-300 (10.1" 1280x800) is a
-		 * single-channel LVDS panel; upstream hardcodes dual-link here.
-		 * Keep in sync with the kernel overlay
-		 * k3-am625-sk-bsd101wx1-300.dtso (single-link OLDI0). Revert to
-		 * OLDI_DUAL_LINK for the 1920x1080 m236hjj-l31 panel. ===== */
-		priv->oldi_mode = OLDI_SINGLE_LINK_SINGLE_MODE;
+		/* ===== CRZ CHANGED (2nd revision): DUAL link, like upstream and
+		 * the old port. Board bring-up showed single-link OLDI0 gives a
+		 * lit backlight but a black bsd101wx1-300 panel; the old 6.1
+		 * port muxed all 8 OLDI pairs + both clocks and used a
+		 * dual-link odd/even overlay. Keep in sync with the kernel
+		 * overlay k3-am625-sk-bsd101wx1-300.dtso (dual-link). ===== */
+		priv->oldi_mode = OLDI_DUAL_LINK;
 		if (priv->oldi_mode) {
 			ret = dss_init_am65x_oldi_io_ctrl(dev, priv);
 			if (ret)
