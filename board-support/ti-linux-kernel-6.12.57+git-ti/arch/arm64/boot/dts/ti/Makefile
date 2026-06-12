@@ -17,6 +17,14 @@ dtb-$(CONFIG_ARCH_K3) += k3-am625-minimal.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am625-phyboard-lyra-rdk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk.dtb
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300.dtbo
+# ===== CRZ TEMP: bring-up test-matrix variants, remove when panel verified =====
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300-s0.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300-s1.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300-s0-jeida.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300-s1-jeida.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300-s0-18.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300-dual-jeida.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-bsd101wx1-300-dual-18.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-innolux-at070tn92.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-innolux-m236hjj-l31.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am625-sk-lincolntech-lcd185-panel.dtbo
