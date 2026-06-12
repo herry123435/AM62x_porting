@@ -2507,19 +2507,22 @@ static const struct drm_display_mode bestar_bsd101wx1_300_mode = {
 static const struct panel_desc bestar_bsd101wx1_300 = {
 	.modes = &bestar_bsd101wx1_300_mode,
 	.num_modes = 1,
-	/* ===== CRZ CHANGED: the 6.1 values (RGB888_1X24, no connector_type)
-	 * fail the 6.12 tidss OLDI bridge bus-format negotiation (only LVDS
-	 * 1X7X3/1X7X4 formats are accepted, see tidss_oldi.c), leaving the
-	 * pipe - and the backlight - permanently off. Modeled on the in-tree
-	 * 10.1" 1280x800 LVDS panel rocktech_rk101ii01d_ct. ===== */
+	/* ===== CRZ CHANGED (2nd revision): this is a DPI (24-bit parallel
+	 * RGB) panel, NOT LVDS. Proof from board bring-up: the working 6.1
+	 * system exposes it as connector "DPI-1", and the panel's 60-pin
+	 * FPCB (CX schematic sheet 4 "LCD I/F (RGB)", J5) carries
+	 * VOUT0_DATA0..23 + sync/DE/PCLK plus the capacitive touch lines.
+	 * RGB888_1X24 is the correct bus format for the DPI path (DSS VP2);
+	 * an earlier revision wrongly converted this panel to LVDS SPWG and
+	 * routed it through the unused OLDI connector. ===== */
 	.bpc = 8,
 	.size = {
 		.width = 217,
 		.height = 136,
 	},
 	.bus_flags = DRM_BUS_FLAG_DE_HIGH,
-	.bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,
-	.connector_type = DRM_MODE_CONNECTOR_LVDS,
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+	.connector_type = DRM_MODE_CONNECTOR_DPI,
 };
 
 static const struct drm_display_mode innolux_m236hjj_l31_mode = {
