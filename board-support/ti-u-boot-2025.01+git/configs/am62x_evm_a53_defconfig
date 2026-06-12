@@ -231,3 +231,18 @@ CONFIG_DFU_NAND_TRIMFFS=y
 #include <configs/k3_efi_capsule.config>
 #include <configs/am62x_a53_usbdfu.config>
 #include <configs/am62x_a53_splashscreen.config>
+
+# ==== CRZ CHANGED: no SPL-stage splash (old-port behavior - splash runs at
+# U-Boot proper via loadsplash). These overrides must stay AFTER the
+# splashscreen fragment above. Also required for linking: with
+# CMD_NAND/MTD_RAW_NAND enabled, SPL splash_source.o references
+# nand_read_skip_bad (no NAND core in A53 SPL), and SPL video builds
+# pwm_backlight.o (not phase-gated) without a PWM uclass in SPL. ====
+# (note: comment lines here must not begin with a cpp directive word)
+# CONFIG_SPL_VIDEO is not set
+# CONFIG_SPL_VIDEO_TIDSS is not set
+# CONFIG_SPL_SPLASH_SCREEN is not set
+# CONFIG_SPL_SPLASH_SOURCE is not set
+# CONFIG_SPL_BMP is not set
+# CONFIG_SPL_SYS_WHITE_ON_BLACK is not set
+# CONFIG_SPL_HIDE_LOGO_VERSION is not set
