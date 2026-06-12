@@ -1,8 +1,3 @@
-/* ===== CRZ TEMPORARY DIAGNOSTIC: compile this file with debug() output
- * enabled to trace the silent SPL FAT/FIT boot window. REMOVE the two
- * lines below when boot debugging is done. ===== */
-#define LOG_DEBUG
-#define DEBUG
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2010
@@ -760,7 +755,6 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		hang();
 	}
 
-	puts("CRZ: image loaded OK\n"); /* ===== CRZ TEMP BREADCRUMB ===== */
 	spl_perform_fixups(&spl_image);
 
 	os = spl_image.os;
@@ -829,7 +823,6 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 			       ret);
 	}
 
-	puts("CRZ: jumping now\n"); /* ===== CRZ TEMP BREADCRUMB ===== */
 	spl_board_prepare_for_boot();
 	jump_to_image(&spl_image);
 }

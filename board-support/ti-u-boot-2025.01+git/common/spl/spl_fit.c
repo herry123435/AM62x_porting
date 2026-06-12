@@ -1,8 +1,3 @@
-/* ===== CRZ TEMPORARY DIAGNOSTIC: compile this file with debug() output
- * enabled to trace the silent SPL FAT/FIT boot window. REMOVE the two
- * lines below when boot debugging is done. ===== */
-#define LOG_DEBUG
-#define DEBUG
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2016 Google, Inc
@@ -854,7 +849,6 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	if (spl_image->entry_point == FDT_ERROR || spl_image->entry_point == 0)
 		spl_image->entry_point = spl_image->load_addr;
 
-	puts("CRZ: fit done\n"); /* ===== CRZ TEMP BREADCRUMB ===== */
 	spl_image->flags |= SPL_FIT_FOUND;
 	upl_set_fit_info(map_to_sysmem(ctx.fit), ctx.conf_node,
 			 spl_image->entry_point);

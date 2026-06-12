@@ -26,7 +26,6 @@
 #include <fs.h>
 #include <hang.h>
 #include <i2c.h>
-#include <debug_uart.h> /* ===== CRZ TEMP ===== */
 #include <init.h>
 #include <initcall.h>
 #include <log.h>
@@ -1025,12 +1024,6 @@ static const init_fnc_t init_sequence_f[] = {
 
 void board_init_f(ulong boot_flags)
 {
-	/* ===== CRZ TEMP BREADCRUMB: prove U-Boot proper entered (pre-console).
-	 * Requires CONFIG_DEBUG_UART. Remove when boot debugging is done. ===== */
-#ifdef CONFIG_DEBUG_UART
-	debug_uart_init();
-	printascii("CRZ: proper entry\n");
-#endif
 	struct board_f boardf;
 
 	gd->flags = boot_flags;

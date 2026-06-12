@@ -1,8 +1,3 @@
-/* ===== CRZ TEMPORARY DIAGNOSTIC: compile this file with debug() output
- * enabled to trace the silent SPL FAT/FIT boot window. REMOVE the two
- * lines below when boot debugging is done. ===== */
-#define LOG_DEBUG
-#define DEBUG
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2010
