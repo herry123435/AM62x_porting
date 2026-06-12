@@ -37,8 +37,12 @@
 	memory@80000000 {
 		bootph-pre-ram;
 		device_type = "memory";
-		/* 2G RAM */
-		reg = <0x00000000 0x80000000 0x00000000 0x80000000>;
+		/* ===== CRZ CHANGED: 1G RAM fitted (1x MT40A512M16JY, 8Gb x16).
+		 * Do NOT claim 2G here: U-Boot sizes ram_top/relocation and the
+		 * A53 SPL's fixup_memory_node() from this value, and on SDK 11.02
+		 * BL31 lives at 0x80000000 - any RAM-probe/over-claim corrupts or
+		 * faults against the firewalled ATF region. ===== */
+		reg = <0x00000000 0x80000000 0x00000000 0x40000000>;
 
 	};
 

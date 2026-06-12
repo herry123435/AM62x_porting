@@ -1063,11 +1063,6 @@ int fdtdec_setup_mem_size_base(void)
 	debug("%s: Initial DRAM size %llx\n", __func__,
 	      (unsigned long long)gd->ram_size);
 
-	/* ===== CRZ ADDED START: board has 1GB DDR4 but DT/DDRSS claim 2GB;
-	 * detect the real size at runtime (aliasing-safe, see common/memsize.c) ===== */
-	gd->ram_size = get_ram_size((long *)gd->ram_base, 0x80000000);
-	/* ===== CRZ ADDED END ===== */
-
 	return 0;
 }
 
@@ -1116,14 +1111,6 @@ int fdtdec_setup_memory_banksize(void)
 		      __func__, bank,
 		      (unsigned long long)gd->bd->bi_dram[bank].start,
 		      (unsigned long long)gd->bd->bi_dram[bank].size);
-
-		/* ===== CRZ ADDED START: clamp bank 0 to the actually fitted DDR size ===== */
-		if (bank == 0) {
-			gd->bd->bi_dram[bank].size =
-				get_ram_size((long *)gd->bd->bi_dram[bank].start,
-					     0x80000000);
-		}
-		/* ===== CRZ ADDED END ===== */
 	}
 
 	return 0;
@@ -1171,14 +1158,6 @@ int fdtdec_setup_mem_size_base_lowest(void)
 			      __func__, base, (unsigned long)size);
 		}
 	}
-
-	/* ===== CRZ ADDED START: board has 1GB DDR4 but the DT/DDRSS claim 2GB.
-	 * This is the dram_init() path actually used on K3 in 2025.01 (see
-	 * board/ti/common/k3-ddr.c), so clamp gd->ram_size here - it feeds the
-	 * MMU map, ram_top/relocation and the memsize env variable. ===== */
-	if (gd->ram_base != (unsigned long)~0)
-		gd->ram_size = get_ram_size((long *)gd->ram_base, 0x80000000);
-	/* ===== CRZ ADDED END ===== */
 
 	return 0;
 }
