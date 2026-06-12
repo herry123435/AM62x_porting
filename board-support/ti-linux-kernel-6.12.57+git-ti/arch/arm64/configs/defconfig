@@ -1022,6 +1022,11 @@ CONFIG_FB=y
 CONFIG_FB_EFI=y
 CONFIG_FB_SIMPLE=y
 CONFIG_FB_MODE_HELPERS=y
+# CRZ: BACKLIGHT_CLASS_DEVICE must be BUILTIN (=y): with DRM=y but the
+# backlight class =m, drm_panel_of_backlight() compiles to a no-op stub
+# (see include/drm/drm_panel.h IS_BUILTIN/IS_MODULE gate) and the panel can
+# never auto-enable its backlight.
+CONFIG_BACKLIGHT_CLASS_DEVICE=y
 CONFIG_BACKLIGHT_PWM=y
 CONFIG_BACKLIGHT_LP855X=m
 CONFIG_LOGO=y
