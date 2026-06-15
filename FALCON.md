@@ -20,10 +20,12 @@ U-Boot-proper init time.
   by this procedure.
 - **Recovery = the boot-mode switch.** Set it back to NAND/eMMC (or remove the
   SD card) and power-cycle; the board boots its untouched normal image.
-- There is **no in-SD U-Boot fallback**: the Falcon SD card has no `tispl.bin` /
-  `u-boot.img`. `boot_os` is therefore a **build-time** choice baked into the
-  Falcon `tiboot3.bin` (the R5 SPL reads its default env; there is no U-Boot on
-  the card to `setenv`/`saveenv`).
+- There is **no in-SD U-Boot fallback** and **no `boot_os` switch**: the Falcon
+  SD card has no `tispl.bin` / `u-boot.img`. The K3 platform
+  (`arch/arm/mach-k3/common.c`) auto-selects Falcon whenever `tifalcon.bin` loads
+  — `spl_start_uboot()` keys off the internal `tifalcon_loaded` flag. Recovery is
+  the boot-mode switch. (Do **not** add a `spl_start_uboot()` to `evm.c`; the
+  platform already defines it and a second one fails to link.)
 - The normal build (`make u-boot`) and the normal `am62x_evm_r5_defconfig` are
   **untouched** — all Falcon work happens in separate `*-falcon` output dirs and
   in the opt-in `k3_r5_falcon.config` fragment.
@@ -104,18 +106,18 @@ ls -l $BL31_FALCON          # build/k3/lite/release/bl31.bin must exist
 
 ## Section 3 — Build Falcon U-Boot
 
-### 3a. Bake the Falcon env into the R5 SPL
+### 3a. (No env edit needed) — how the Falcon cmdline is built
 
-The Falcon `tiboot3.bin` reads its built-in default env, so `boot_os` and
-`bootargs` must be set before the R5 build. (Keep the repo default `boot_os=no`;
-this flips it only for the Falcon image.)
+There is **no `boot_os` / `bootargs` step**. The K3 platform auto-enables Falcon
+when `tifalcon.bin` loads, and `k3_falcon_fdt_fixup()`
+(`arch/arm/mach-k3/common.c`) builds the kernel cmdline automatically as
+`console=<console> root=PARTUUID=<rootfs uuid> rootwait` from env the board
+already ships. Just confirm those exist:
 
 ```bash
-cd $UBOOT/board/ti/am62x
-sed -i 's/^boot_os=no/boot_os=yes/' am62x.env
-grep -q '^bootargs=' am62x.env || \
-  printf 'bootargs=console=ttyS2,115200n8 root=/dev/mmcblk1p2 rw rootwait\n' >> am62x.env
-grep -E '^boot_os=|^bootargs=' am62x.env      # verify: boot_os=yes + a bootargs line
+grep -E '^console=|^boot=|^bootpart=' $UBOOT/board/ti/am62x/am62x.env
+# expected: console=ttyS2,115200n8  /  boot=mmc  /  bootpart=1:2
+# (bootpart 1:2 = SD = mmc dev 1, partition 2 -> rootfs PARTUUID is derived from it)
 ```
 
 ### 3b. Build the R5 SPL (Falcon) -> `tiboot3.bin`
@@ -321,6 +323,11 @@ sudo umount /mnt/fboot /mnt/froot
   `MTD_RAW_NAND` / `NAND_OMAP_GPMC` / `NAND_OMAP_ELM` (already applied). If the
   A53 build (3c) ever throws the same error, add those three `# ... is not set`
   lines to that build's `.config` too.
+- **`multiple definition of 'spl_start_uboot'` at link:** the K3 platform
+  (`arch/arm/mach-k3/common.c:584`) already defines a non-weak `spl_start_uboot()`
+  (Falcon when `tifalcon.bin` loaded). Do **not** add one in `board/ti/am62x/evm.c`
+  — that was an early mistake, now removed. Falcon selection and the kernel
+  cmdline are entirely platform-provided.
 
 ## Appendix B — Revert to normal (disable Falcon)
 
@@ -328,8 +335,6 @@ sudo umount /mnt/fboot /mnt/froot
   card. Nothing else needed.
 - To rebuild a normal SD card, use the standard `make u-boot` output
   (`u-boot-build/r5/tiboot3.bin`, `u-boot-build/a53/tispl.bin`, `u-boot.img`).
-- Restore the repo env default: `sed -i 's/^boot_os=yes/boot_os=no/'
-  $UBOOT/board/ti/am62x/am62x.env`.
 
 ## Appendix C — GP devices only (unsigned, no core-secdev-k3)
 
