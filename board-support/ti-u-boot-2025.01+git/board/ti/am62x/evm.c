@@ -227,6 +227,56 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
 		fixup_memory_node(spl_image);
 	}
 }
+
+#if defined(CONFIG_SPL_OS_BOOT)
+/*
+ * ===== CRZ ADDED START: Falcon-mode boot selector =====
+ *
+ * In a Falcon build (CONFIG_SPL_OS_BOOT, enabled only via the opt-in
+ * configs/k3_r5_falcon.config fragment on the R5 SPL) the R5 SPL can boot
+ * Linux directly: R5 SPL -> ATF -> OP-TEE -> Kernel, skipping the A53 SPL and
+ * U-Boot. spl_start_uboot() is asked, every boot, which path to take:
+ *   return 1 -> normal chain: load tispl.bin -> A53 SPL -> U-Boot  (SAFE)
+ *   return 0 -> Falcon: load tifalcon.bin + boot/fitImage and start the kernel
+ *
+ * Safety properties (this must not be able to brick normal boot):
+ *  - This override is wrapped in CONFIG_SPL_OS_BOOT, so it is compiled ONLY
+ *    into the Falcon R5 image. The normal am62x_evm_r5_defconfig build (and the
+ *    A53 build) never see it; their boot binaries are byte-for-byte unchanged.
+ *  - Falcon is opt-in and defaults to OFF: it is taken only when env 'boot_os'
+ *    is explicitly 'yes'. The default env ships boot_os=no (am62x.env).
+ *  - A 'c' on the console at SPL always forces the full U-Boot chain.
+ * Because k3_r5_falcon.config sets SPL_OS_BOOT_SECURE=y (which disables
+ * SPL_FALCON_ALLOW_FALLBACK), this gate is the safety net: when it returns 1 the
+ * SPL never even looks for the kernel payload.
+ */
+int spl_start_uboot(void)
+{
+	/* Console escape hatch: 'c' always forces the full U-Boot chain. */
+	if (tstc() && getchar() == 'c')
+		return 1;
+
+	/*
+	 * Optional hardware boot-select (GPIO jumper). Wire this to a free,
+	 * R5-SPL-pinmuxed GPIO on the mango board once one is validated, e.g.:
+	 *
+	 *   struct gpio_desc sel;
+	 *   if (!dm_gpio_lookup_label("<bank>_<pin>", &sel, &(uint){0}) &&
+	 *       !dm_gpio_get_value(&sel))         // asserted low = request Falcon
+	 *           return 0;
+	 *
+	 * Left as documentation (not wired) until a conflict-free pin is chosen
+	 * in the R5 SPL device tree; the env gate below is the active mechanism.
+	 */
+
+	/* Env gate: Falcon only when explicitly opted-in (default: U-Boot). */
+	if (env_get_yesno("boot_os") == 1)
+		return 0;
+
+	return 1;
+}
+/* ===== CRZ ADDED END ===== */
+#endif
 #endif
 
 #if defined(CONFIG_OF_BOARD_SETUP)
