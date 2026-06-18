@@ -30,6 +30,26 @@ U-Boot-proper init time.
   **untouched** — all Falcon work happens in separate `*-falcon` output dirs and
   in the opt-in `k3_r5_falcon.config` fragment.
 
+## States through the procedure (what you have before / after)
+
+The runbook has four logical stages. Each row reads "start state → end state":
+
+| Stage (sections) | Start state | End state |
+|---|---|---|
+| **Build artifacts (1–4)** | Clean SDK with the AM62x_porting repo overlaid; no Falcon artifacts; the board's normal boot (NAND/eMMC) untouched | Falcon build outputs exist on the build machine: `$R5O/tiboot3.bin`, `$A53O/tifalcon.bin`, `$SECDEV/fitImage`. **No SD card written yet.** |
+| **Assemble + boot (5–6)** | Artifacts from 1–4, plus a **blank** SD card | A Falcon SD card running the **TI Arago** image; boots straight into Linux, no U-Boot stage. |
+| **Clone Ubuntu (7)** | A Falcon card from 5–6 **and** a separate, working **normal-boot Ubuntu** SD card | The Falcon card now runs **Ubuntu**; the normal-boot Ubuntu card is read-only-copied and left **unchanged**. |
+| **In-place convert (Appendix D)** | A working **normal-boot Ubuntu** SD card, plus artifacts from 1–4 | That **same** card now Falcon-boots Ubuntu (its boot SPL is replaced; the original `tiboot3.bin` is backed up). |
+
+**Two ways to end up Falcon-booting Ubuntu:**
+- **Two cards:** do 1–6 (makes a Falcon/Arago card), then **Section 7** (clone your Ubuntu onto it). Your normal card is never modified.
+- **One card:** do 1–4, then **Appendix D** (convert your Ubuntu card in place).
+
+> **Section 7 needs an existing normal-boot Ubuntu SD card as its source.**
+> Creating that card (partitioning, U-Boot, kernel, Ubuntu rootfs) is documented
+> **separately** — see *‹your normal-boot Ubuntu SD-card setup guide›*. This
+> runbook covers only the Falcon conversion, not the normal Ubuntu install.
+
 ## Prerequisites
 
 1. **Device type = HS-FS** (this SDK's default; the stock `tiboot3.bin` is the
@@ -39,11 +59,11 @@ U-Boot-proper init time.
    see Appendix C for the unsigned shortcut.
 2. **`core-secdev-k3`** must be present (used to sign the kernel + dtb). Check:
    ```bash
-   ls /home/herry123435/ti-processor-sdk-linux-am62xx-evm-11.02.08.02/board-support/core-secdev-k3/scripts/secure-binary-image.sh
+   ls $HOME/ti-processor-sdk-linux-am62xx-evm-11.02.08.02/board-support/core-secdev-k3/scripts/secure-binary-image.sh
    ```
    If missing:
    ```bash
-   cd /home/herry123435/ti-processor-sdk-linux-am62xx-evm-11.02.08.02/board-support
+   cd $HOME/ti-processor-sdk-linux-am62xx-evm-11.02.08.02/board-support
    git clone https://git.ti.com/git/security-development-tools/core-secdev-k3.git
    ```
 
@@ -52,7 +72,7 @@ U-Boot-proper init time.
 ## Section 0 — Environment (paste once per shell)
 
 ```bash
-export TI_SDK_PATH=/home/herry123435/ti-processor-sdk-linux-am62xx-evm-11.02.08.02
+export TI_SDK_PATH=$HOME/ti-processor-sdk-linux-am62xx-evm-11.02.08.02   # adjust if your SDK lives elsewhere
 export CROSS_COMPILE=$TI_SDK_PATH/linux-devkit/sysroots/x86_64-arago-linux/usr/bin/aarch64-oe-linux/aarch64-oe-linux-
 export CROSS_COMPILE_ARMV7=$TI_SDK_PATH/k3r5-devkit/sysroots/x86_64-arago-linux/usr/bin/arm-oe-eabi/arm-oe-eabi-
 export SDK_PATH_TARGET=$TI_SDK_PATH/linux-devkit/sysroots/aarch64-oe-linux
@@ -82,7 +102,7 @@ intentionally absent so nothing is removed.
 rsync -av --no-perms --omit-dir-times \
   --exclude ti-processor-sdk-backup --exclude ti-processor-sdk-backup.zip \
   --exclude am62x_diff_20231122 --exclude '.git' --exclude '.claude' \
-  /home/herry123435/AM62x_porting/  $TI_SDK_PATH/
+  <path-to>/AM62x_porting/  $TI_SDK_PATH/
 ```
 
 ---
@@ -271,6 +291,11 @@ sudo mkfs.ext4 -F   -L rootfs  ${SD}${P}2
 
 ### 5c. Mount + copy files + rootfs + matching modules
 
+> This installs the **TI Arago** image (`tisdk-default-image`), so the finished
+> card Falcon-boots **Arago, not Ubuntu**. To Falcon-boot **Ubuntu**, run
+> Sections 1–6 as-is, then do **Section 7** to clone your Ubuntu rootfs onto this
+> card (or use **Appendix D** to convert an existing Ubuntu card in place).
+
 ```bash
 sudo mkdir -p /mnt/fboot /mnt/froot
 sudo mount ${SD}${P}1 /mnt/fboot
@@ -305,6 +330,124 @@ sudo umount /mnt/fboot /mnt/froot
 5. **Failure / hang:** flip the boot-mode switch back to NAND/eMMC (or pull the
    card) and power-cycle. Production boot is untouched. Read the serial log to
    see the last R5 SPL stage reached.
+
+---
+
+## Section 7 — Reuse an existing OS: clone a normal-boot card's rootfs onto the Falcon card
+
+Use this when you already built the Falcon artifacts (Sections 2–4) and have a
+Falcon card (Section 5), but you want Falcon to boot an **existing OS** (e.g. your
+production Ubuntu on its own normal-boot SD card) instead of the TI default image.
+
+**Requires three things — all must exist before you start:**
+1. The Falcon build artifacts — **Sections 1–4** (`$A53O/tifalcon.bin`, `$SECDEV/fitImage`).
+2. A **Falcon card** as the *target* — **Sections 5–6** (its p1 carries the Falcon `tiboot3.bin`; this is the card identified by `/boot/tifalcon.bin` below).
+3. A working **normal-boot Ubuntu SD card** as the *source*. Building that card
+   (partitioning, U-Boot, kernel, Ubuntu rootfs) is **not** covered here — it is
+   documented **separately**; see *‹your normal-boot Ubuntu SD-card setup guide›*.
+
+Section 7 does **not** by itself turn a lone Ubuntu card into a Falcon card — for
+that single-card path use **Appendix D** instead.
+
+It copies the rootfs **from** your normal-boot card **onto** the Falcon card's
+partition 2, keeping the Falcon boot files. Key safety points:
+- The normal-boot card is mounted **read-only** and only read — it is **never
+  modified**, so its normal boot keeps working.
+- Only **partition 2** of the Falcon card is changed; its p1 (FAT) Falcon
+  `tiboot3.bin` is left intact.
+- Falcon derives `root=PARTUUID=…` at runtime from this card's p2, so the cloned
+  rootfs boots regardless of its PARTUUID — no env changes needed.
+
+Assumes one card reader, so the rootfs goes through a tarball on the build
+machine. **Source the Section 0 environment first** (`$A53O`, `$SECDEV`, `$KERN`,
+`$CROSS_COMPILE` come from there).
+
+> Desktop auto-mount note: when you insert a card, the desktop usually
+> **auto-mounts** it. A "find the unmounted ext4 partition" loop will then skip
+> it. So below we identify the partition with `lsblk` and target it directly.
+
+### PHASE 1 — Capture the rootfs off the normal-boot card (read-only)
+
+**7.1 Insert the normal-boot SD card. Identify it:**
+```bash
+lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINT,MODEL
+```
+Find the SD card by size/model. Note its **ext4 rootfs partition** (usually
+partition 2, e.g. `/dev/sda2` or `/dev/mmcblk0p2`).
+
+**7.2 Mount it READ-ONLY and confirm it is the right OS:**
+```bash
+SRC=/dev/sda2                       # <-- the rootfs partition you identified
+sudo umount "$SRC" 2>/dev/null      # drop any desktop auto-mount
+sudo mkdir -p /mnt/src
+sudo mount -o ro "$SRC" /mnt/src
+head -2 /mnt/src/etc/os-release ; cat /mnt/src/etc/hostname ; ls /mnt/src
+```
+You should see your expected distro (e.g. `Ubuntu 20.04`), the hostname, and a
+normal rootfs (`bin etc home lib usr var …`). It is mounted read-only — safe.
+
+**7.3 Tar the whole rootfs to the build machine:**
+```bash
+df -h $HOME                         # make sure several GB are free
+sudo tar -C /mnt/src --numeric-owner --xattrs --acls -cpzf $HOME/rootfs.tar.gz .
+sudo umount /mnt/src
+```
+Now **remove the normal-boot card** (it was only read).
+
+### PHASE 2 — Write that rootfs onto the Falcon card
+
+**7.4 Insert the Falcon card. Identify and confirm it (has `/boot/tifalcon.bin`):**
+```bash
+lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT,MODEL
+DST=/dev/sda2                       # <-- the Falcon card's ext4 partition (from lsblk)
+sudo umount "$DST" 2>/dev/null
+sudo mkdir -p /mnt/dst
+sudo mount -o ro "$DST" /mnt/dst
+ls -l /mnt/dst/boot/tifalcon.bin    # MUST list -> this is the Falcon card
+sudo umount /mnt/dst
+```
+If `tifalcon.bin` is **not** there, `$DST` is the wrong partition — recheck `lsblk`.
+
+**7.5 Replace the rootfs (guarded so it only wipes the confirmed Falcon card):**
+```bash
+sudo mount "$DST" /mnt/dst
+if [ -f /mnt/dst/boot/tifalcon.bin ]; then
+  sudo find /mnt/dst -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  sudo tar -C /mnt/dst --numeric-owner --xattrs --acls -xpzf $HOME/rootfs.tar.gz
+  echo "rootfs written"
+else
+  echo "ABORT: $DST is not the Falcon card (no tifalcon.bin)"; sudo umount /mnt/dst
+fi
+```
+
+**7.6 Re-add the Falcon payloads (wiped with the old rootfs) and matching modules:**
+```bash
+sudo mkdir -p /mnt/dst/boot
+sudo cp $A53O/tifalcon.bin /mnt/dst/boot/tifalcon.bin
+sudo cp $SECDEV/fitImage   /mnt/dst/boot/fitImage
+sudo make -C $KERN ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE \
+     INSTALL_MOD_PATH=/mnt/dst modules_install
+sudo sync
+sudo umount /mnt/dst
+```
+
+**7.7 Boot** as in Section 6 — Falcon now lands in your cloned OS.
+
+⚠️ Before the `find … rm -rf` in 7.5, eyeball the `lsblk` size to be sure `$DST`
+is the SD card, not another disk. The `tifalcon.bin` guard only wipes a partition
+that actually carries the Falcon file, but confirm the device first.
+
+### Section 7 troubleshooting
+
+- **`lsblk: : not a block device` / a `SRC=`/`DST=` variable came out empty:** the
+  lookup found nothing — usually the **wrong card is inserted** (e.g. the Arago
+  default-image card instead of your OS card), or the desktop **auto-mounted** the
+  card so an "unmounted ext4" scan skipped it. Fix: run `lsblk`, read the real
+  device, and set `SRC`/`DST` to that partition directly (as in 7.2 / 7.4).
+- **Card not listed at all in `lsblk`:** the reader didn't enumerate it — reseat
+  it or try another reader; confirm a ~tens-of-GB SD device appears.
+- **`tar: … Cannot write: No space left on device` in 7.5:** the Falcon card's p2
+  is smaller than the rootfs contents. Use a larger card, or shrink the source.
 
 ---
 
@@ -349,6 +492,54 @@ printf 'CONFIG_SPL_FALCON_ALLOW_FALLBACK=y\n' >> $UBOOT/configs/k3_r5_falcon.con
 #    data = /incbin/("falcon.dtb")  (no .sec), then:
 cd $SECDEV && cp $KERN/arch/arm64/boot/Image Image && cp /tmp/falcon.dtb falcon.dtb
 $A53O/tools/mkimage -f fitImage.its fitImage
+```
+
+## Appendix D — In-place convert a single Ubuntu card to Falcon (one card, no cloning)
+
+Use this when you have **one** working normal-boot Ubuntu SD card and want *that
+card itself* to Falcon-boot — no second card, no rootfs copying. It needs the
+Falcon artifacts built first (**Sections 1–4**). It **modifies** the card
+(replaces the boot-partition SPL) but backs up the original so you can revert.
+
+- **Start state:** a working normal-boot Ubuntu SD card + built artifacts (1–4).
+- **End state:** that same card Falcon-boots Ubuntu (normal-boot SPL backed up).
+
+**D.1 — Insert the Ubuntu card; identify and mount both partitions**
+(the desktop auto-mount note from Section 7 applies — target devices directly):
+```bash
+lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINT,MODEL
+BOOTP=/dev/sda1      # <-- FAT boot partition (from lsblk)
+ROOTP=/dev/sda2      # <-- ext4 Ubuntu rootfs partition (from lsblk)
+sudo umount "$BOOTP" "$ROOTP" 2>/dev/null
+sudo mkdir -p /mnt/fb /mnt/fr
+sudo mount "$BOOTP" /mnt/fb
+sudo mount "$ROOTP" /mnt/fr
+head -2 /mnt/fr/etc/os-release ; ls -l /mnt/fb/tiboot3.bin   # confirm Ubuntu rootfs + existing SPL
+```
+
+**D.2 — Back up the normal SPL, install the Falcon SPL on p1:**
+```bash
+sudo cp -a /mnt/fb/tiboot3.bin /mnt/fb/tiboot3.bin.normal.bak
+sudo cp $R5O/tiboot3.bin /mnt/fb/tiboot3.bin
+```
+
+**D.3 — Add the Falcon payloads to p2 /boot + install matching modules:**
+```bash
+sudo cp $A53O/tifalcon.bin /mnt/fr/boot/tifalcon.bin
+sudo cp $SECDEV/fitImage   /mnt/fr/boot/fitImage
+sudo make -C $KERN ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE \
+     INSTALL_MOD_PATH=/mnt/fr modules_install
+sudo sync
+sudo umount /mnt/fb /mnt/fr
+```
+
+**D.4 — Boot** as in Section 6 → Falcon → Ubuntu.
+
+**Revert this card to normal boot:**
+```bash
+sudo mount "$BOOTP" /mnt/fb
+sudo cp -a /mnt/fb/tiboot3.bin.normal.bak /mnt/fb/tiboot3.bin
+sudo umount /mnt/fb
 ```
 
 ## Memory map reference (1 GB DDR4, fits TI's SK map)
