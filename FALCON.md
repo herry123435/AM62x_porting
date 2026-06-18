@@ -321,7 +321,7 @@ sudo umount /mnt/fboot /mnt/froot
 
 1. Set the board boot-mode switch to **SD boot** (same SW1/SW2 setting used for
    normal SD boot, schematic sheet 3).
-2. Connect serial console: `ttyS2`, 115200 8N1.
+2. Connect serial console: `ttyS2`, 115200 8N1. (It is marked as UART0 on the board.")
 3. Insert the card, power on.
 4. **Success:** R5 SPL banner, then Linux boots **directly** — no
    `U-Boot 2025.01...` banner, no boot countdown. That absence proves Falcon ran.
