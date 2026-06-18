@@ -10,6 +10,9 @@
 # Override any variable from the environment if your layout differs, e.g.:
 #   TI_SDK_PATH=/opt/ti-sdk ROOTFS=/media/$USER/rootfs BOOT=/media/$USER/boot ./build-normal-sd.sh
 #
+# Re-exec under bash if started with sh/dash (pipefail is a bash-only feature).
+if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
+
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
