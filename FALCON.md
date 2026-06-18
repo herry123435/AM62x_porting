@@ -11,8 +11,12 @@ Falcon boot:  R5 SPL -> ATF -> OP-TEE -> Kernel          (no A53 SPL, no U-Boot)
 ```
 
 The R5 SPL loads a cut-down `tifalcon.bin` (ATF+OP-TEE+DM, no A53 SPL) plus a
-signed `fitImage` (kernel + dtb) and jumps straight into Linux. It saves the
+`fitImage` (kernel + dtb) and jumps straight into Linux. It saves the
 U-Boot-proper init time.
+
+> AM62x board is **GP** (general-purpose) silicon, so the main flow uses an
+> **unsigned** `fitImage` and does not need `core-secdev-k3`.  (It is optional)
+> HS-FS / HS-SE boards must sign it — see **Appendix C**.
 
 ## Safety model (read first)
 
@@ -36,7 +40,7 @@ The runbook has four logical stages. Each row reads "start state → end state":
 
 | Stage (sections) | Start state | End state |
 |---|---|---|
-| **Build artifacts (1–4)** | Clean SDK with the AM62x_porting repo overlaid; no Falcon artifacts; the board's normal boot (NAND/eMMC) untouched | Falcon build outputs exist on the build machine: `$R5O/tiboot3.bin`, `$A53O/tifalcon.bin`, `$SECDEV/fitImage`. **No SD card written yet.** |
+| **Build artifacts (1–4)** | Clean SDK with the AM62x_porting repo overlaid; no Falcon artifacts; the board's normal boot (NAND/eMMC) untouched | Falcon build outputs exist on the build machine: `$R5O/tiboot3.bin`, `$A53O/tifalcon.bin`, `$FITDIR/fitImage`. **No SD card written yet.** |
 | **Assemble + boot (5–6)** | Artifacts from 1–4, plus a **blank** SD card | A Falcon SD card running the **TI Arago** image; boots straight into Linux, no U-Boot stage. |
 | **Clone Ubuntu (7)** | A Falcon card from 5–6 **and** a separate, working **normal-boot Ubuntu** SD card | The Falcon card now runs **Ubuntu**; the normal-boot Ubuntu card is read-only-copied and left **unchanged**. |
 | **In-place convert (Appendix D)** | A working **normal-boot Ubuntu** SD card, plus artifacts from 1–4 | That **same** card now Falcon-boots Ubuntu (its boot SPL is replaced; the original `tiboot3.bin` is backed up). |
@@ -52,20 +56,13 @@ The runbook has four logical stages. Each row reads "start state → end state":
 
 ## Prerequisites
 
-1. **Device type = HS-FS** (this SDK's default; the stock `tiboot3.bin` is the
-   `hs-fs` variant and the build sets `CONFIG_TI_SECURE_DEVICE=y`). Confirm from
-   the serial log of a normal boot — look for `Device Type: HS-FS`. HS-FS means
-   the `fitImage` **must be signed** (Section 4). If your board is actually `GP`,
-   see Appendix C for the unsigned shortcut.
-2. **`core-secdev-k3`** must be present (used to sign the kernel + dtb). Check:
-   ```bash
-   ls $HOME/ti-processor-sdk-linux-am62xx-evm-11.02.08.02/board-support/core-secdev-k3/scripts/secure-binary-image.sh
-   ```
-   If missing:
-   ```bash
-   cd $HOME/ti-processor-sdk-linux-am62xx-evm-11.02.08.02/board-support
-   git clone https://git.ti.com/git/security-development-tools/core-secdev-k3.git
-   ```
+1. **Device type = GP** (general-purpose — AM62x). Confirm from a normal
+   boot's serial log: `Device Type: GP`, or the Falcon SPL printing
+   `Skipping authentication on GP device`. On GP the kernel `fitImage` is
+   **unsigned** and **`core-secdev-k3` is not required** — the main flow below is
+   the GP path.
+2. **HS-FS / HS-SE boards only:** the `fitImage` must be signed (needs
+   `core-secdev-k3`). That is **not** part of the main flow — see **Appendix C**.
 
 ---
 
@@ -82,12 +79,12 @@ export UBOOT=$TI_SDK_PATH/board-support/ti-u-boot-2025.01+git
 export KERN=$TI_SDK_PATH/board-support/ti-linux-kernel-6.12.57+git-ti
 export TFA=$TI_SDK_PATH/board-support/trusted-firmware-a-2.13+git
 export FW=$TI_SDK_PATH/board-support/prebuilt-images/am62xx-evm
-export SECDEV=$TI_SDK_PATH/board-support/core-secdev-k3
 export DM=$FW/ti-dm/am62xx/ipc_echo_testb_mcu1_0_release_strip.xer5f
 
 export R5O=$TI_SDK_PATH/board-support/u-boot-build/r5-falcon
 export A53O=$TI_SDK_PATH/board-support/u-boot-build/a53-falcon
 export BL31_FALCON=$TFA/build/k3/lite/release/bl31.bin
+export FITDIR=$TI_SDK_PATH/board-support/falcon-fit          # where the (GP, unsigned) fitImage is built
 ```
 
 ---
@@ -155,7 +152,8 @@ make -j16 -C $UBOOT ARCH=arm CROSS_COMPILE=$CROSS_COMPILE_ARMV7 BINMAN_INDIRS=$F
 
 # sanity-check the merged config:
 grep -E 'CONFIG_(NAND_OMAP_GPMC|MTD_RAW_NAND|SPL_NAND_SUPPORT)' $R5O/.config   # all "is not set"
-grep -E 'CONFIG_SPL_OS_BOOT=|CONFIG_SPL_OS_BOOT_SECURE=' $R5O/.config           # both =y
+grep -E 'CONFIG_SPL_OS_BOOT=|CONFIG_SPL_OS_BOOT_SECURE|CONFIG_SPL_FALCON_ALLOW_FALLBACK=' $R5O/.config
+#   GP expects: SPL_OS_BOOT=y, SPL_OS_BOOT_SECURE "is not set", FALCON_ALLOW_FALLBACK=y
 ls -l $R5O/tiboot3.bin
 ```
 
@@ -175,7 +173,7 @@ ls -l $A53O/tifalcon.bin
 
 ---
 
-## Section 4 — Build kernel + signed Falcon `fitImage`
+## Section 4 — Build kernel + Falcon `fitImage` (GP, unsigned)
 
 ### 4a. Build the kernel + device trees
 
@@ -194,14 +192,14 @@ fdtoverlay -i k3-am625-sk.dtb -o /tmp/falcon.dtb k3-am625-sk-bsd101wx1-300.dtbo
 ls -l /tmp/falcon.dtb
 ```
 
-### 4c. Sign the kernel + dtb and build the FIT (HS-FS)
+### 4c. Build the (unsigned) FIT — GP
+
+On GP the kernel and dtb are packaged **as-is** (no `.sec`, no `core-secdev-k3`):
 
 ```bash
-cd $SECDEV
+mkdir -p $FITDIR && cd $FITDIR
 cp $KERN/arch/arm64/boot/Image  Image
 cp /tmp/falcon.dtb              falcon.dtb
-./scripts/secure-binary-image.sh Image      Image.sec
-./scripts/secure-binary-image.sh falcon.dtb falcon.dtb.sec
 
 cat > fitImage.its << 'EOF'
 /dts-v1/;
@@ -213,7 +211,7 @@ cat > fitImage.its << 'EOF'
     images {
         kernel-1 {
             description = "Linux kernel";
-            data = /incbin/("Image.sec");
+            data = /incbin/("Image");
             type = "kernel";
             arch = "arm64";
             os = "linux";
@@ -223,7 +221,7 @@ cat > fitImage.its << 'EOF'
         };
         falcon.dtb {
             description = "Flattened Device Tree blob";
-            data = /incbin/("falcon.dtb.sec");
+            data = /incbin/("falcon.dtb");
             type = "flat_dt";
             arch = "arm64";
             compression = "none";
@@ -235,7 +233,7 @@ cat > fitImage.its << 'EOF'
     configurations {
         default = "conf-falcon";
         conf-falcon {
-            description = "Pre-signed Kernel and DTB";
+            description = "Kernel and DTB";
             kernel = "kernel-1";
             fdt = "falcon.dtb";
         };
@@ -244,11 +242,11 @@ cat > fitImage.its << 'EOF'
 EOF
 
 $A53O/tools/mkimage -f fitImage.its fitImage
-ls -l $SECDEV/fitImage
+ls -l $FITDIR/fitImage
 ```
 
 `mkimage` is built by U-Boot (here `$A53O/tools/mkimage`); it is not a system
-command.
+command. (HS-FS/HS-SE: build a **signed** FIT instead — see Appendix C.)
 
 ---
 
@@ -260,7 +258,7 @@ Falcon needs exactly **3 files**:
 |------|--------|---------------|-----------|
 | `tiboot3.bin` | `$R5O/tiboot3.bin` | `/tiboot3.bin` | p1 boot (FAT) |
 | `tifalcon.bin` | `$A53O/tifalcon.bin` | `/boot/tifalcon.bin` | p2 rootfs (ext4) |
-| `fitImage` | `$SECDEV/fitImage` | `/boot/fitImage` | p2 rootfs (ext4) |
+| `fitImage` | `$FITDIR/fitImage` | `/boot/fitImage` | p2 rootfs (ext4) |
 
 ### 5a. Identify the SD card  ⚠️ DESTRUCTIVE — get this right
 
@@ -307,7 +305,7 @@ sudo cp $R5O/tiboot3.bin /mnt/fboot/tiboot3.bin
 # p2 (ext4): rootfs, then the two Falcon payloads under /boot
 sudo tar --numeric-owner -xpf $TI_SDK_PATH/filesystem/am62xx-evm/tisdk-default-image-am62xx-evm.rootfs.tar.xz -C /mnt/froot
 sudo cp $A53O/tifalcon.bin /mnt/froot/boot/tifalcon.bin
-sudo cp $SECDEV/fitImage   /mnt/froot/boot/fitImage
+sudo cp $FITDIR/fitImage   /mnt/froot/boot/fitImage
 
 # install YOUR kernel's modules so they match the fitImage kernel
 sudo make -C $KERN ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE \
@@ -340,7 +338,7 @@ Falcon card (Section 5), but you want Falcon to boot an **existing OS** (e.g. yo
 production Ubuntu on its own normal-boot SD card) instead of the TI default image.
 
 **Requires three things — all must exist before you start:**
-1. The Falcon build artifacts — **Sections 1–4** (`$A53O/tifalcon.bin`, `$SECDEV/fitImage`).
+1. The Falcon build artifacts — **Sections 1–4** (`$A53O/tifalcon.bin`, `$FITDIR/fitImage`).
 2. A **Falcon card** as the *target* — **Sections 5–6** (its p1 carries the Falcon `tiboot3.bin`; this is the card identified by `/boot/tifalcon.bin` below).
 3. A working **normal-boot Ubuntu SD card** as the *source*. Building that card
    (partitioning, U-Boot, kernel, Ubuntu rootfs) is **not** covered here — it is
@@ -359,7 +357,7 @@ partition 2, keeping the Falcon boot files. Key safety points:
   rootfs boots regardless of its PARTUUID — no env changes needed.
 
 Assumes one card reader, so the rootfs goes through a tarball on the build
-machine. **Source the Section 0 environment first** (`$A53O`, `$SECDEV`, `$KERN`,
+machine. **Source the Section 0 environment first** (`$A53O`, `$FITDIR`, `$KERN`,
 `$CROSS_COMPILE` come from there).
 
 > Desktop auto-mount note: when you insert a card, the desktop usually
@@ -424,7 +422,7 @@ fi
 ```bash
 sudo mkdir -p /mnt/dst/boot
 sudo cp $A53O/tifalcon.bin /mnt/dst/boot/tifalcon.bin
-sudo cp $SECDEV/fitImage   /mnt/dst/boot/fitImage
+sudo cp $FITDIR/fitImage   /mnt/dst/boot/fitImage
 sudo make -C $KERN ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE \
      INSTALL_MOD_PATH=/mnt/dst modules_install
 sudo sync
@@ -458,7 +456,8 @@ that actually carries the Falcon file, but confirm the device first.
   Section 2 (already in the commands).
 - **`mkimage: command not found`:** it is built by U-Boot, not the OS. Use
   `$A53O/tools/mkimage` (or `$R5O/tools/mkimage`), as in Section 4c.
-- **`core-secdev-k3 missing`:** clone it (Prerequisites #2).
+- **`core-secdev-k3 missing`:** only needed for HS-FS/HS-SE signing — clone it
+  per Appendix C. GP (AM62x) doesn't need it.
 - **`CONFIG_SYS_NAND_BLOCK_SIZE undeclared` during the R5 build:** the board's
   R5 defconfig enables the GPMC NAND driver, which `select`s `SPL_NAND_INIT`;
   disabling only `SPL_NAND_SUPPORT` drops `SYS_NAND_BLOCK_SIZE` while
@@ -479,19 +478,48 @@ that actually carries the Falcon file, but confirm the device first.
 - To rebuild a normal SD card, use the standard `make u-boot` output
   (`u-boot-build/r5/tiboot3.bin`, `u-boot-build/a53/tispl.bin`, `u-boot.img`).
 
-## Appendix C — GP devices only (unsigned, no core-secdev-k3)
+## Appendix C — HS-FS / HS-SE boards: signed `fitImage` (replaces the GP steps)
 
-If `Device Type: GP` (not HS-FS):
+The main flow targets **GP** (AM62x). On **HS-FS / HS-SE** silicon (a normal
+boot's log shows `Device Type: HS-FS` or `HS-SE`) TIFS authenticates the kernel
+payload, so the `fitImage` **must be signed** with the `core-secdev-k3` package.
+Apply these three deltas on top of the main flow.
 
+> Note: this board is GP, where signed images **also** boot
+> (`Skipping authentication on GP device`), so signing is optional here — it was
+> used during initial bring-up. The GP/unsigned main flow is the simpler route.
+
+**C.0 — Extra env var for this appendix** (the GP main flow does not define it):
 ```bash
-# 1) drop secure-os-boot in the fragment, allow fallback
-sed -i 's/^CONFIG_SPL_OS_BOOT_SECURE=y/# CONFIG_SPL_OS_BOOT_SECURE is not set/' $UBOOT/configs/k3_r5_falcon.config
-printf 'CONFIG_SPL_FALCON_ALLOW_FALLBACK=y\n' >> $UBOOT/configs/k3_r5_falcon.config
-# 2) rebuild R5 (Section 3b)
-# 3) build an UNSIGNED fitImage: in fitImage.its use data = /incbin/("Image") and
-#    data = /incbin/("falcon.dtb")  (no .sec), then:
-cd $SECDEV && cp $KERN/arch/arm64/boot/Image Image && cp /tmp/falcon.dtb falcon.dtb
+export SECDEV=$TI_SDK_PATH/board-support/core-secdev-k3
+```
+
+**C.1 — Get `core-secdev-k3`** (the signing package; not shipped in the SDK):
+```bash
+ls $SECDEV/scripts/secure-binary-image.sh 2>/dev/null || \
+  git clone https://git.ti.com/git/security-development-tools/core-secdev-k3.git $SECDEV
+```
+
+**C.2 — Re-enable secure OS-boot in the fragment, then rebuild R5 (Section 3b):**
+```bash
+sed -i 's/^# CONFIG_SPL_OS_BOOT_SECURE is not set/CONFIG_SPL_OS_BOOT_SECURE=y/' $UBOOT/configs/k3_r5_falcon.config
+sed -i '/^CONFIG_SPL_FALCON_ALLOW_FALLBACK=y/d'                                  $UBOOT/configs/k3_r5_falcon.config
+# then re-run Section 3b
+```
+
+**C.3 — Replace Section 4c with a signed FIT** (sign, then package the `.sec`
+files; finally copy into `$FITDIR` so Sections 5/7/D are unchanged):
+```bash
+cd $SECDEV
+cp $KERN/arch/arm64/boot/Image  Image
+cp /tmp/falcon.dtb              falcon.dtb
+./scripts/secure-binary-image.sh Image      Image.sec
+./scripts/secure-binary-image.sh falcon.dtb falcon.dtb.sec
+# Use the Section 4c fitImage.its but change the two data lines to the signed names:
+#   data = /incbin/("Image.sec");        (kernel-1)
+#   data = /incbin/("falcon.dtb.sec");   (falcon.dtb)
 $A53O/tools/mkimage -f fitImage.its fitImage
+mkdir -p $FITDIR && cp $SECDEV/fitImage $FITDIR/fitImage
 ```
 
 ## Appendix D — In-place convert a single Ubuntu card to Falcon (one card, no cloning)
@@ -526,7 +554,7 @@ sudo cp $R5O/tiboot3.bin /mnt/fb/tiboot3.bin
 **D.3 — Add the Falcon payloads to p2 /boot + install matching modules:**
 ```bash
 sudo cp $A53O/tifalcon.bin /mnt/fr/boot/tifalcon.bin
-sudo cp $SECDEV/fitImage   /mnt/fr/boot/fitImage
+sudo cp $FITDIR/fitImage   /mnt/fr/boot/fitImage
 sudo make -C $KERN ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE \
      INSTALL_MOD_PATH=/mnt/fr modules_install
 sudo sync
@@ -546,7 +574,7 @@ sudo umount /mnt/fb
 
 ```
 0x80000000  ATF (BL31)            CONFIG_K3_ATF_LOAD_ADDR
-0x82000000  Kernel (Image.sec)    PRELOADED_BL33_BASE / SPL_LOAD_FIT_ADDRESS
+0x82000000  Kernel (fitImage)     PRELOADED_BL33_BASE / SPL_LOAD_FIT_ADDRESS
 0x88000000  Kernel DTB            K3_HW_CONFIG_BASE / SPL_PAYLOAD_ARGS_ADDR
 0x89000000  Device Manager (DM)
 0x9e800000  OP-TEE (BL32)         CONFIG_K3_OPTEE_LOAD_ADDR
