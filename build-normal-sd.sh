@@ -15,6 +15,16 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 
 set -euo pipefail
 
+# Must run as your normal user, NOT with sudo/root. Under sudo, HOME becomes
+# /root, so the default TI_SDK_PATH points at /root/... and nothing is found.
+# (The script calls sudo itself only for the SD-rootfs copy + modules_install.)
+if [ "$(id -u)" -eq 0 ]; then
+  echo "ERROR: run as your normal user, not with sudo/root." >&2
+  echo "       Use:  ./build-normal-sd.sh   (sudo is invoked internally where needed)" >&2
+  [ -n "${SUDO_USER:-}" ] && echo "       (detected sudo; your home is probably /home/$SUDO_USER)" >&2
+  exit 1
+fi
+
 # ---------------------------------------------------------------------------
 # Configuration (every value can be overridden from the environment)
 # ---------------------------------------------------------------------------
