@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Innolux AT070TN92 panel overlay for AM625 SK.
+ * Innolux AT070TN92 panel overlay for AM625 SK / CX-AM62x.
+ *
+ * ===== CRZ CHANGED: rewritten as a DPI panel on VP2 =====
+ * The AT070TN92 is a 7" RGB-parallel (DPI) panel wired to VOUT0 (see the
+ * CX-AM62x "LCD I/F (RGB)" schematic sheet and the old port's U-Boot
+ * dtbo_idx==1 DPI pixel-clock workaround); the previous version of this
+ * overlay wrongly routed it through the OLDI (LVDS) transmitters, which the
+ * 6.12 tidss OLDI bridge rejects for its RGB888_1X24 bus format.
+ * dss_ports port@1 is VP2 = DPI out (see k3-am62-main.dtsi).
+ * Timings come from the panel-simple "innolux,at070tn92" descriptor; a
+ * panel-timing node here would only trigger "Reject override mode" warnings.
  */
 
 /dts-v1/;
@@ -10,41 +20,10 @@
 	display {
 		compatible = "innolux,at070tn92", "panel-simple";
 		backlight = <&lcd_bl>;
-		width-mm = <154>;
-		height-mm = <86>;
-		data-mapping = "vesa-24";
 
-		panel-timing {
-			clock-frequency = <33333>;
-			hactive = <800>;
-			vactive = <480>;
-			hfront-porch = <210>;
-			hback-porch = <46>;
-			hsync-len = <20>;
-			vfront-porch = <22>;
-			vback-porch = <23>;
-			vsync-len = <10>;
-			de-active = <1>;
-		};
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				dual-lvds-odd-pixels;
-				lcd_in0: endpoint {
-					remote-endpoint = <&oldi_0_out>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-				dual-lvds-even-pixels;
-				lcd_in1: endpoint {
-					remote-endpoint = <&oldi_1_out>;
-				};
+		port {
+			lcd_in0: endpoint {
+				remote-endpoint = <&dpi1_out>;
 			};
 		};
 	};
@@ -54,72 +33,14 @@
 	status = "okay";
 };
 
-&oldi0 {
-	status = "okay";
-	ti,companion-oldi = <&oldi1>;
-};
-
-&oldi1 {
-	status = "okay";
-	ti,secondary-oldi;
-	ti,companion-oldi = <&oldi0>;
-};
-
-&oldi0_ports {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	port@0 {
-		reg = <0>;
-		oldi_0_in: endpoint {
-			remote-endpoint = <&dpi0_out0>;
-		};
-	};
-
-	port@1 {
-		reg = <1>;
-		oldi_0_out: endpoint {
-			remote-endpoint = <&lcd_in0>;
-		};
-	};
-};
-
-&oldi1_ports {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	port@0 {
-		reg = <0>;
-		oldi_1_in: endpoint {
-			remote-endpoint = <&dpi0_out1>;
-		};
-	};
-
-	port@1 {
-		reg = <1>;
-		oldi_1_out: endpoint {
-			remote-endpoint = <&lcd_in1>;
-		};
-	};
-};
-
 &dss_ports {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	port@0 {
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		dpi0_out0: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&oldi_0_in>;
-		};
-
-		dpi0_out1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&oldi_1_in>;
+	port@1 {
+		reg = <1>;
+		dpi1_out: endpoint {
+			remote-endpoint = <&lcd_in0>;
 		};
 	};
 };

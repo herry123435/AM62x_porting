@@ -309,7 +309,9 @@ int CRZ_set_board_header_and_name(void)
 	ep->header = TI_EEPROM_HEADER_MAGIC;
 	strcpy(ep->name, "AM62-SKEVM");
 	strncpy(ep->version, "CRZ", sizeof(ep->version) - 1);
+	ep->version[sizeof(ep->version) - 1] = '\0';
 	strncpy(ep->serial, "0000", sizeof(ep->serial) - 1);
+	ep->serial[sizeof(ep->serial) - 1] = '\0';
 
 	first_time = false;
 

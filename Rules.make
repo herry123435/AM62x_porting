@@ -10,7 +10,9 @@ INSTALL_MOD_STRIP?=1
 EXEC_DIR?=__EXEC_DIR__
 
 #root of the target file system for installing applications
-DESTDIR?=__DESTDIR__
+# ===== CRZ CHANGED: stage installs into image_temp without running setup.sh
+# (old-port behavior) =====
+DESTDIR?=$(TI_SDK_PATH)/image_temp
 
 # Root of the boot partition to install boot binaries
 BOOTFS?=__BOOTFS__
@@ -84,6 +86,8 @@ PVR_BUILD_DIR=am62_linux
 WINDOW_SYSTEM=lws-generic
 PVR_BUILD=release
 
-MAKE_ALL_TARGETS?= arm-benchmarks cryptodev u-boot linux linux-dtbs ti-img-rogue-driver jailhouse linux-extras linux-extras-dtbs u-boot-extras
+# ===== CRZ CHANGED: build only board-relevant components (old-port trim) =====
+#MAKE_ALL_TARGETS?= arm-benchmarks cryptodev u-boot linux linux-dtbs ti-img-rogue-driver jailhouse linux-extras linux-extras-dtbs u-boot-extras
+MAKE_ALL_TARGETS?= cryptodev u-boot linux linux-dtbs ti-img-rogue-driver
 
 MAKE_JOBS=16

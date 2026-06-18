@@ -95,8 +95,9 @@ CONFIG_TI_K3_NAVSS_UDMA=y
 CONFIG_TI_SCI_PROTOCOL=y
 CONFIG_SPL_DM_GPIO_LOOKUP_LABEL=y
 CONFIG_DA8XX_GPIO=y
-CONFIG_DM_PCA953X=y
-CONFIG_SPL_DM_PCA953X=y
+# ==== CRZ CHANGED: board has no PCA953x GPIO expander ====
+# CONFIG_DM_PCA953X is not set
+# CONFIG_SPL_DM_PCA953X is not set
 CONFIG_DM_I2C=y
 CONFIG_SYS_I2C_OMAP24XX=y
 CONFIG_DM_MAILBOX=y
@@ -106,8 +107,9 @@ CONFIG_FS_LOADER=y
 CONFIG_SUPPORT_EMMC_BOOT=y
 CONFIG_MMC_IO_VOLTAGE=y
 CONFIG_SPL_MMC_IO_VOLTAGE=y
-CONFIG_MMC_UHS_SUPPORT=y
-CONFIG_SPL_MMC_UHS_SUPPORT=y
+# ==== CRZ CHANGED: SD slot has no 1.8V switching, disable UHS modes ====
+# CONFIG_MMC_UHS_SUPPORT is not set
+# CONFIG_SPL_MMC_UHS_SUPPORT is not set
 CONFIG_MMC_HS200_SUPPORT=y
 CONFIG_SPL_MMC_HS200_SUPPORT=y
 CONFIG_MMC_SDHCI=y
@@ -161,8 +163,14 @@ CONFIG_EFI_SET_TIME=y
 CONFIG_SPL_GZIP=y
 
 # ==== Phase 1: old custom items re-added for first bring-up ====
-CONFIG_SYS_K3_SPL_ATF=y
-CONFIG_K3_ATF_LOAD_ADDR=0x9e780000
+# ==== CRZ CHANGED: SYS_K3_SPL_ATF / K3_ATF_LOAD_ADDR REMOVED from the A53
+# config (they are R5-SPL concepts; R5 defaults them correctly). On 2025.01,
+# setting SYS_K3_SPL_ATF on A53 compiles OUT board_fit_image_post_process()
+# (see arch/arm/mach-k3/common.c '&& !IS_ENABLED(CONFIG_SYS_K3_SPL_ATF)'),
+# so the A53 SPL never strips the X.509 signing certificate from the loaded
+# u-boot.img and jumps into certificate bytes -> silent hang after
+# "mmc_load_image_raw_sector". The 2023.04 baseline had no such guard, which
+# is why the old port got away with it. ====
 CONFIG_TI_I2C_BOARD_DETECT=y
 CONFIG_ENV_IS_IN_MMC=y
 CONFIG_ENV_OFFSET=0x680000
@@ -170,6 +178,77 @@ CONFIG_ENV_SIZE=0x20000
 CONFIG_I2C_EEPROM=y
 CONFIG_SPL_I2C_EEPROM=y
 
+# ==== CRZ ADDED: boot flow (old port behavior) ====
+# Splash, honor uEnv.txt/boot.scr (envboot), select the LCD overlay from
+# dtbo_idx (set_overlays runs AFTER envboot so a dtbo_idx from uEnv.txt is
+# honored), then the TI legacy boot path (init_${boot} ->
+# get_kern/get_fdt/get_overlay). Falls back to bootstd if it does not boot.
+CONFIG_USE_BOOTCOMMAND=y
+CONFIG_BOOTCOMMAND="run loadsplash; run envboot; run set_overlays; run bootcmd_ti_mmc; bootflow scan -lb"
+
+# ==== CRZ ADDED: U-Boot-proper splash on TIDSS (loadsplash uses 'bmp display') ====
+CONFIG_VIDEO_TIDSS=y
+CONFIG_CMD_BMP=y
+CONFIG_VIDEO_BMP_GZIP=y
+# NOTE: VIDEO_LOGO must stay enabled: with BOOTSTD_FULL, boot/bootflow_menu.c
+# references __splash_u_boot_logo_begin (video_get_u_boot_logo()) and the
+# link fails without u_boot_logo.o. The old port's "VIDEO_LOGO is not set"
+# cosmetic trim cannot be carried to 2025.01.
+# backlight-enable GPIO0_36 is driven by a gpio-hog (k3-am62-sk-common-u-boot.dtsi)
+CONFIG_GPIO_HOG=y
+
+# ==== CRZ ADDED: LCD backlight (EHRPWM0_A PWM + enable GPIO) ====
+CONFIG_DM_PWM=y
+CONFIG_PWM_TI_EHRPWM=y
+CONFIG_BACKLIGHT_PWM=y
+
+CONFIG_DM_I2C_GPIO=y
+
+# ==== CRZ ADDED: GPMC NAND (2Gbit, 2KiB page / 128KiB block) ====
+# (CMD_MTD/CMD_MTDPARTS/CMD_UBI/DM_MTD/SPL_MTD are already in the vanilla
+# defconfig above)
+CONFIG_SYS_NAND_BLOCK_SIZE=0x20000
+CONFIG_SYS_NAND_PAGE_SIZE=0x800
+CONFIG_SYS_NAND_OOBSIZE=0x80
+CONFIG_SYS_NAND_MAX_CHIPS=1
+# CONFIG_SPL_NAND_AM33XX_BCH is not set
+CONFIG_SYS_NAND_U_BOOT_OFFS=0x600000
+CONFIG_SYS_NAND_U_BOOT_LOCATIONS=y
+CONFIG_NAND_BOOT=y
+CONFIG_SPL_NAND_SUPPORT=y
+CONFIG_SPL_NAND_DRIVERS=y
+CONFIG_SPL_NAND_ECC=y
+CONFIG_SPL_NAND_BASE=y
+CONFIG_SPL_NAND_IDENT=y
+CONFIG_CMD_NAND=y
+CONFIG_MTD_RAW_NAND=y
+CONFIG_NAND_OMAP_GPMC=y
+CONFIG_NAND_OMAP_ELM=y
+CONFIG_MEMORY=y
+CONFIG_SPL_MEMORY=y
+CONFIG_TI_GPMC=y
+
+# ==== CRZ ADDED: DFU over NAND (old port values) ====
+# (SYS_DFU_DATA_BUF_SIZE=0x40000 already comes from am62x_a53_usbdfu.config)
+CONFIG_DFU_MTD=y
+CONFIG_DFU_NAND=y
+CONFIG_DFU_NAND_TRIMFFS=y
+
 #include <configs/k3_efi_capsule.config>
 #include <configs/am62x_a53_usbdfu.config>
 #include <configs/am62x_a53_splashscreen.config>
+
+# ==== CRZ CHANGED: no SPL-stage splash (old-port behavior - splash runs at
+# U-Boot proper via loadsplash). These overrides must stay AFTER the
+# splashscreen fragment above. Also required for linking: with
+# CMD_NAND/MTD_RAW_NAND enabled, SPL splash_source.o references
+# nand_read_skip_bad (no NAND core in A53 SPL), and SPL video builds
+# pwm_backlight.o (not phase-gated) without a PWM uclass in SPL. ====
+# (note: comment lines here must not begin with a cpp directive word)
+# CONFIG_SPL_VIDEO is not set
+# CONFIG_SPL_VIDEO_TIDSS is not set
+# CONFIG_SPL_SPLASH_SCREEN is not set
+# CONFIG_SPL_SPLASH_SOURCE is not set
+# CONFIG_SPL_BMP is not set
+# CONFIG_SPL_SYS_WHITE_ON_BLACK is not set
+# CONFIG_SPL_HIDE_LOGO_VERSION is not set

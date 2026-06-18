@@ -37,26 +37,20 @@
 	memory@80000000 {
 		bootph-pre-ram;
 		device_type = "memory";
-		/* 2G RAM */
-		reg = <0x00000000 0x80000000 0x00000000 0x80000000>;
+		/* ===== CRZ CHANGED: 1G RAM fitted (1x MT40A512M16JY, 8Gb x16).
+		 * Do NOT claim 2G here: U-Boot sizes ram_top/relocation and the
+		 * A53 SPL's fixup_memory_node() from this value, and on SDK 11.02
+		 * BL31 lives at 0x80000000 - any RAM-probe/over-claim corrupts or
+		 * faults against the firewalled ATF region. ===== */
+		reg = <0x00000000 0x80000000 0x00000000 0x40000000>;
 
 	};
 
-	vdd_sd_dv: regulator-4 {
-		/* Output of TLV71033 */
-		bootph-all;
-		compatible = "regulator-gpio";
-		regulator-name = "tlv71033";
-		pinctrl-names = "default";
-		pinctrl-0 = <&vdd_sd_dv_pins_default>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-boot-on;
-		vin-supply = <&vcc_5v0>;
-		gpios = <&main_gpio0 31 GPIO_ACTIVE_HIGH>;
-		states = <1800000 0x0>,
-			 <3300000 0x1>;
-	};
+	/* ===== CRZ CHANGED: vdd_sd_dv (TLV71033 SD voltage switch) REMOVED.
+	 * The CX-AM62x board has no SD 1.8V switch (schematic sheet 8: SD is
+	 * plain 3.3V; sdhci1 below already drops vmmc/vqmmc + no-1-8-v), and
+	 * its GPIO0_31 / pad 0x07c is the touchscreen RESET line (TS_RST_N,
+	 * old port's mango_ts pins) used by the panel overlays. ===== */
 
 	vcc_1v8: regulator-5 {
 		/* output of TPS6282518DMQ */
@@ -93,6 +87,10 @@
 		pwms = <&epwm0 0 50000 0>;
 		brightness-levels = <0 32 64 96 128 160 192 224 255>;
 		default-brightness-level = <8>;
+		/* ===== CRZ CHANGED (2nd revision): no enable-gpios here. GPIO0_36
+		 * (GPMC0_BE1n pad 0x094) is LCD_PWREN, the PANEL power enable - the
+		 * old 6.1 overlay drives it via the panel node's enable-gpios, and
+		 * the panel overlays now do the same. Brightness is PWM-only. ===== */
 	};
 };
 
@@ -148,12 +146,9 @@
 		>;
 	};
 
-	vdd_sd_dv_pins_default: vdd-sd-dv-default-pins {
-		bootph-all;
-		pinctrl-single,pins = <
-			AM62X_IOPAD(0x07c, PIN_OUTPUT, 7) /* (P25) GPMC0_CLK.GPIO0_31 */
-		>;
-	};
+	/* ===== CRZ CHANGED: vdd-sd-dv pin group removed with the vdd_sd_dv
+	 * regulator; pad 0x07c (GPIO0_31) is the touch reset, muxed by the
+	 * panel overlay's mango_ts_pins_default. ===== */
 
 	main_gpio1_ioexp_intr_pins_default: main-gpio1-ioexp-intr-default-pins {
 		bootph-all;

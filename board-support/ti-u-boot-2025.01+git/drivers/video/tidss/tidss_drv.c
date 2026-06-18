@@ -11,8 +11,10 @@
 
 #include <dm.h>
 #include <clk.h>
+#include <env.h> /* ===== CRZ ADDED: dtbo_idx pixel-clock-edge hack ===== */
 #include <log.h>
 #include <video.h>
+#include <vsprintf.h> /* ===== CRZ ADDED ===== */
 #include <errno.h>
 #include <panel.h>
 #include <reset.h>
@@ -480,6 +482,17 @@ void dss_vp_enable(struct tidss_drv_priv *priv, u32 hw_videoport, struct display
 	if (priv->feat->vp_bus_type[hw_videoport] == DSS_VP_OLDI)
 		ieo = false;
 
+	/* ===== CRZ ADDED START: for the RGB-parallel at070tn92 panel
+	 * (dtbo_idx=1) force the pixel clock to the rising edge via
+	 * CTRLMMR_DSS_DISPC0_CLK_CTRL (mango 20241122) ===== */
+	{
+		const char *dtbo = env_get("dtbo_idx");
+
+		if (dtbo && simple_strtol(dtbo, NULL, 10) == 1)
+			writel(0xFFFFFFFF, 0x108300);
+	}
+	/* ===== CRZ ADDED END ===== */
+
 	dss_vp_write(priv, hw_videoport, DSS_VP_POL_FREQ,
 		     FLD_VAL(align, 18, 18) |
 		     FLD_VAL(onoff, 17, 17) |
@@ -862,6 +875,12 @@ static int tidss_drv_probe(struct udevice *dev)
 	uc_priv->xsize = timings.hactive.typ;
 	uc_priv->ysize = timings.vactive.typ;
 	if (priv->feat->subrev == DSS_AM65X || priv->feat->subrev == DSS_AM625) {
+		/* ===== CRZ CHANGED (2nd revision): DUAL link, like upstream and
+		 * the old port. Board bring-up showed single-link OLDI0 gives a
+		 * lit backlight but a black bsd101wx1-300 panel; the old 6.1
+		 * port muxed all 8 OLDI pairs + both clocks and used a
+		 * dual-link odd/even overlay. Keep in sync with the kernel
+		 * overlay k3-am625-sk-bsd101wx1-300.dtso (dual-link). ===== */
 		priv->oldi_mode = OLDI_DUAL_LINK;
 		if (priv->oldi_mode) {
 			ret = dss_init_am65x_oldi_io_ctrl(dev, priv);
